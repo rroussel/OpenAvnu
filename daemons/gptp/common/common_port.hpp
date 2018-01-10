@@ -249,7 +249,7 @@ typedef struct {
 	uint16_t index;
 
 	/* timestamper Hardware timestamper instance */
-	CommonTimestamper * timestamper;
+	std::shared_ptr<CommonTimestamper> timestamper;
 
 	/* net_label Network label */
 	InterfaceLabel *net_label;
@@ -446,15 +446,15 @@ protected:
 	OSTimerFactory const * const timer_factory;
 	OSLockFactory const * const lock_factory;
 	OSConditionFactory const * const condition_factory;
-	CommonTimestamper * const _hw_timestamper;
+	std::shared_ptr<CommonTimestamper> _hw_timestamper;
 	bool fUseHardwareTimestamp;
 	IEEE1588Clock * clock;
 	const bool isGM;
 
-	OSThread *listening_thread;
-	OSThread *link_thread;
-	OSThread *eventThread;
-	OSThread *generalThread;
+	std::shared_ptr<OSThread> listening_thread;
+	std::shared_ptr<OSThread> link_thread;
+	std::shared_ptr<OSThread> eventThread;
+	std::shared_ptr<OSThread> generalThread;
 
 	phy_delay_map_t const * const phy_delay;
 
