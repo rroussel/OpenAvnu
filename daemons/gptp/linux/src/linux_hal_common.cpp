@@ -1076,7 +1076,6 @@ bool LinuxSharedMemoryIPC::update(
 
 		ptimedata->ml_freqoffset = filtered;		
 		ptimedata->ls_phoffset = ls_phoffset;
-		ptimedata->ml_freqoffset = ml_freqoffset;
 		ptimedata->ls_freqoffset = ls_freqoffset;
 		ptimedata->clock_id = clockId;
 		ptimedata->local_time = local_time;
