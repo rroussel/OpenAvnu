@@ -1626,16 +1626,21 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 
 	port->incCounter_ieee8021AsPortStatRxFollowUpCount();
 
-	PTPMessageSync *sync = port->getLastSync();
+	/*PTPMessageSync *sync = port->getLastSync();
 	if (sync == nullptr) {
 		GPTP_LOG_ERROR("Received Follow Up but there is no sync message");
 		return;
-	}
+	}*/
 	bool ok = false;
 	
 	{
 		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
       GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::processMessage   after sync LOCK");
+      	PTPMessageSync *sync = port->getLastSync(false);
+		if (sync == nullptr) {
+			GPTP_LOG_ERROR("Received Follow Up but there is no sync message");
+			return;
+		}
 
 		std::shared_ptr<PortIdentity> sync_id;
 		sync_id = sync->getPortIdentity();
