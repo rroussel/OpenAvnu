@@ -1650,10 +1650,10 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 		 *sync_id != *sourcePortIdentity))
 		{
 	#ifdef APTP
-			GPTP_LOG_ERROR("Received Follow Up that didn't match the sync message. "
-			 "sync.seqId:%d  followup.seqId:%d", sync->getSequenceId(), sequenceId);
-			GPTP_LOG_VERBOSE("Sync clock id:%s", 
-	 	    sync_id->getClockIdentity().getIdentityString().c_str());
+			GPTP_LOG_ERROR("Received Follow Up that didn't match the sync message.\n"
+			 "sync.seqId:%d followup.seqId:%d", sync->getSequenceId(), sequenceId);
+			GPTP_LOG_ERROR("       Sync clock id:%s",  sync_id->getClockIdentity().getIdentityString().c_str());
+			GPTP_LOG_ERROR("source Port Identity:%s",  sourcePortIdentity->getClockIdentity().getIdentityString().c_str());
 	#else
 			unsigned int cnt = 0;
 
@@ -1769,6 +1769,7 @@ bool PTPMessageFollowUp::ComputeFrequencies(EtherPort * port)
 
 	if( !port->getLinkDelay(&delay) ) 
 	{
+	//
 		GPTP_LOG_ERROR("Error getting link delay.");
 		return ok;
 	}
