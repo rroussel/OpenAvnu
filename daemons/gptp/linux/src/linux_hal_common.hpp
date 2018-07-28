@@ -721,7 +721,7 @@ public:
 		shm_fd = 0;
 		err = 0;
 		master_offset_buffer = NULL;
-		fLastFreqoffset = 0.0;
+		fLastFreqoffset = 1.0;
 	};
 	/**
 	 * @brief Destroys and unlinks shared memory
