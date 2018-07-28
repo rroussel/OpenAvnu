@@ -78,6 +78,28 @@ CommonPort::CommonPort( PortInit_t *portInit ) :
 	link_speed = INVALID_LINKSPEED;
 	fUseHardwareTimestamp = true;
 	fSyncIntervalTimeoutExpireCount = 0;
+
+	delay_mechanism = V2_E2E;
+	testMode = false;
+	log_mean_sync_interval = 0;
+	fLastFilteredRateRatio = 0.0;
+	smoothRateChange = false;
+	fIsWireless = false;
+	fMasterOffset = 0.0;
+	sync_count = 0;
+	delay_sequence_id = 0;
+	lastGmTimeBaseIndicator = 0;
+	fFollowupAhead = false;
+	fHaveFollowup  = false;
+	fHaveDelayResp = false;
+	syncReceiptTimerLock = NULL;
+	syncIntervalTimerLock = NULL;
+	announceIntervalTimerLock = NULL;
+	fAdrRegSocketPort = 0;
+	fLastLocaltime = 0.0;
+	fLastRemote = 0.0;
+	fBadDiffCount = 0;
+	fGoodSyncCount = 0;
 }
 
 CommonPort::~CommonPort()
