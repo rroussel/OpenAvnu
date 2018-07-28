@@ -71,6 +71,8 @@ class GptpIniParser
       {
          /*ptp data set*/
          unsigned char priority1;
+         unsigned char priority2;
+         unsigned char accuracy;
 
          /*port data set*/
          int8_t initialLogAnnounceInterval;
@@ -127,6 +129,26 @@ class GptpIniParser
       unsigned char getPriority1() const
       {
          return _config.priority1;
+      }
+
+      /**
+      * @brief  Reads priority2 config value
+      * @param  void
+      * @return priority2
+      */
+      unsigned char getPriority2() const
+      {
+         return _config.priority2;
+      }
+
+      /**
+      * @brief  Reads accuracy config value
+      * @param  void
+      * @return accuracy
+      */
+      unsigned char getAccuracy() const
+      {
+         return _config.accuracy;
       }
 
       /**

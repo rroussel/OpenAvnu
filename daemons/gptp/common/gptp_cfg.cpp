@@ -100,6 +100,26 @@ int GptpIniParser::iniCallBack(void *user, const char *section,
                 parser->_config.priority1 = p1;
             }
         }
+        else if( parseMatch(name, "priority2") )
+        {
+           errno = 0;
+           char *pEnd;
+           unsigned char p1 = (unsigned char) strtoul(value, &pEnd, 10);
+           if( *pEnd == '\0' && errno == 0) {
+               valOK = true;
+               parser->_config.priority2 = p1;
+           }                  
+        }
+        else if( parseMatch(name, "accuracy") ) 
+        {
+           errno = 0;
+           char *pEnd;
+           unsigned char p1 = (unsigned char) strtoul(value, &pEnd, 10);
+           if( *pEnd == '\0' && errno == 0) {
+               valOK = true;
+               parser->_config.accuracy = p1;
+           }                         
+        }
     }
     else if( parseMatch(section, "port") )
     {

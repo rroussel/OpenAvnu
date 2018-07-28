@@ -206,7 +206,8 @@ public:
    * @param lock_factory [in] Provides a factory object for creating locking a locking mechanism
    */
   IEEE1588Clock
-	  (bool forceOrdinarySlave, bool syntonize, uint8_t priority1,
+	  (bool forceOrdinarySlave, bool syntonize, 
+      uint8_t priority1, uint8_t priority2, uint8_t accuracy,
 	   OSTimerQueueFactory * timerq_factory, OS_IPC * ipc,
 	   OSLockFactory *lock_factory );
 

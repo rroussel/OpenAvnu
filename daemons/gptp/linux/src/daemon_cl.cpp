@@ -186,6 +186,9 @@ int main(int argc, char **argv)
 	int i;
 	bool pps = false;
 	uint8_t priority1 = 248;
+        uint8_t priority2 = 248;
+        uint8_t accuracy = 0xFE;
+
 	bool override_portstate = false;
 	PortState port_state = PTP_SLAVE;
 
@@ -456,6 +459,8 @@ int main(int argc, char **argv)
 			GPTP_LOG_INFO("E2E delay mechansm: %d", V2_E2E);
 			GPTP_LOG_INFO("delay_mechansm: %d", iniParser.getDelayMechanism());
 			GPTP_LOG_INFO("priority1 = %d", iniParser.getPriority1());
+                        GPTP_LOG_INFO("priority2 = %d", iniParser.getPriority2());
+                        GPTP_LOG_INFO("accuracy = %d", iniParser.getAccuracy());
 			GPTP_LOG_INFO("announceReceiptTimeout: %d", iniParser.getAnnounceReceiptTimeout());
 			GPTP_LOG_INFO("initialLogSyncInterval: %d", iniParser.getInitialLogSyncInterval());
 			GPTP_LOG_INFO("syncReceiptTimeout: %d", iniParser.getSyncReceiptTimeout());
@@ -472,6 +477,9 @@ int main(int argc, char **argv)
 #endif
 
 			priority1 = iniParser.getPriority1();
+			priority2 = iniParser.getPriority2();
+			accuracy = iniParser.getAccuracy();
+
 
 			/* If using config file, set the syncReceiptThreshold, otherwise
 			 * it will use the default value (SYNC_RECEIPT_THRESH)
@@ -522,7 +530,7 @@ int main(int argc, char **argv)
 	delete ipc_arg;
 	ipc_arg = nullptr;
 
-	k.pClock = new IEEE1588Clock(false, syntonize, priority1, k.timerq_factory, k.ipc,
+	k.pClock = new IEEE1588Clock(false, syntonize, priority1, priority2, accuracy, k.timerq_factory, k.ipc,
 	  k.lock_factory);
 
 	k.pPort->setClock(k.pClock);

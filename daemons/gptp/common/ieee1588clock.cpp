@@ -95,19 +95,20 @@ void ClockIdentity::set(const AMacAddress& addr)
 }
 
 IEEE1588Clock::IEEE1588Clock
-( bool forceOrdinarySlave, bool syntonize, uint8_t priority1,
+( bool forceOrdinarySlave, bool syntonize,
+  uint8_t priority1, uint8_t priority2, uint8_t accuracy,
   OSTimerQueueFactory *timerq_factory, OS_IPC *ipc,
   OSLockFactory *lock_factory )
 {
 	this->priority1 = priority1;
-	priority2 = 248;
+	this->priority2 = priority2;
 
 	number_ports = 0;
 
 	this->forceOrdinarySlave = forceOrdinarySlave;
 
     /*TODO: Make the values below configurable*/
-	clock_quality.clockAccuracy = 0x22;
+    clock_quality.clockAccuracy = accuracy;
 	clock_quality.cq_class = 248;
 	clock_quality.offsetScaledLogVariance = 0x436A;
 
