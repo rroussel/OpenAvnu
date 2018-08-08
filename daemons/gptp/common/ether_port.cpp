@@ -973,13 +973,21 @@ void EtherPort::becomeSlave( bool restart_syntonization ) {
 void EtherPort::mapSocketAddr
 (std::shared_ptr<PortIdentity>  destIdentity, LinkLayerAddress * remote)
 {
-	*remote = identity_map[destIdentity];
+	if (remote != nullptr && destIdentity != nullptr)
+	{
+		*remote = identity_map[*destIdentity];
+	}
 }
 
 void EtherPort::addSockAddrMap
 (std::shared_ptr<PortIdentity>  destIdentity, LinkLayerAddress * remote)
 {
-	identity_map[destIdentity] = *remote;
+	if (remote != nullptr && destIdentity != nullptr)
+	{
+		identity_map[*destIdentity] = *remote;
+	}
+	GPTP_LOG_VERBOSE("EtherPort::addSockAddrMap "
+	"identity_map.size:%d", identity_map.size());
 }
 
 void EtherPort::timestamper_init()

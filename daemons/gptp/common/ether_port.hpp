@@ -70,7 +70,7 @@
  * @brief Provides a map for the identityMap member of EtherPort
  * class
  */
-typedef std::map < std::shared_ptr<PortIdentity>, LinkLayerAddress > IdentityMap_t;
+typedef std::map <PortIdentity, LinkLayerAddress > IdentityMap_t;
 
 
 /**
