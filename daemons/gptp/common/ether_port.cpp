@@ -53,11 +53,14 @@ static std::mutex gLastDelayRespMutex;
 static std::mutex gLastSyncMutex;
 static std::mutex gMeanPathDelayMutex;
 static std::mutex gQualifiedAnnounceMutex;
+static std::mutex gCommonMessageMutex;
 
 LinkLayerAddress EtherPort::other_multicast(OTHER_MULTICAST);
 LinkLayerAddress EtherPort::pdelay_multicast(PDELAY_MULTICAST);
 LinkLayerAddress EtherPort::test_status_multicast
 ( TEST_STATUS_MULTICAST );
+
+PTPMessageAnnounce EtherPort::qualified_announce;
 
 OSThreadExitCode watchNetLinkWrapper(void *arg)
 {
@@ -100,7 +103,6 @@ EtherPort::~EtherPort()
 #ifndef APTP	
 	delete port_ready_condition;
 #endif
-	delete qualified_announce;
 	delete pdelay_rx_lock;
 	delete port_tx_lock;
 	delete pDelayIntervalTimerLock;
@@ -156,10 +158,10 @@ EtherPort::EtherPort( PortInit_t *portInit ) :
 	/*TODO: Add intervals below to a config interface*/
 	log_min_mean_pdelay_req_interval = initialLogPdelayReqInterval;
 
-	last_sync = NULL;
-	last_pdelay_req = NULL;
-	last_pdelay_resp = NULL;
-	last_pdelay_resp_fwup = NULL;
+	last_sync = nullptr;
+	last_pdelay_req = nullptr;
+	last_pdelay_resp = nullptr;
+	last_pdelay_resp_fwup = nullptr;
 
 	setPdelayCount(0);
 	setSyncCount(0);
@@ -243,7 +245,7 @@ void EtherPort::processMessage
 	GPTP_LOG_VERBOSE("Processing network buffer");
 
 	Timestamp ingressTime;
-	PTPMessageCommon *msg =	buildPTPMessage(buf, length, remote, this, ingressTime);
+	std::shared_ptr<PTPMessageCommon> msg = buildPTPMessage(buf, length, remote, this, ingressTime);
 
 	if (msg == NULL)
 	{
@@ -264,8 +266,6 @@ void EtherPort::processMessage
 	}
 
 	msg->processMessage(this);
-	if (msg->garbage())
-		delete msg;
 }
 
 bool EtherPort::PortCheck(EtherPort *port, bool isEvent)
@@ -300,8 +300,7 @@ bool EtherPort::OpenGeneralPort(EtherPort *port)
 	return PortCheck(port, false);
 }
 
-
-PTPMessageAnnounce *EtherPort::calculateERBest(bool lockIt)
+PTPMessageAnnounce& EtherPort::calculateERBest(bool lockIt)
 {
 	if (lockIt)
 	{
@@ -316,14 +315,15 @@ PTPMessageAnnounce *EtherPort::calculateERBest(bool lockIt)
 
 net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 {
-	PTPMessageCommon *msg;
 	const size_t kBufSize = 128;
 	uint8_t buf[kBufSize];
 	LinkLayerAddress remote;
 	net_result rrecv;
 	Timestamp ingressTime;
 	size_t length = kBufSize;
-	
+
+	std::lock_guard<std::mutex> lock(gCommonMessageMutex);	
+
 	rrecv = checkEventMessage
 	 ? net_iface->nrecvEvent(&remote, buf, length, ingressTime, this)
 	 : net_iface->nrecvGeneral(&remote, buf, length, ingressTime, this);
@@ -331,18 +331,14 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 	if (net_succeed == rrecv)
 	{
 		GPTP_LOG_VERBOSE("Processing network buffer");
-		msg = buildPTPMessage(reinterpret_cast<char*>(buf),
-		 kBufSize, &remote, this, ingressTime);
-		if (msg != NULL)
+		std::shared_ptr<PTPMessageCommon> msg = buildPTPMessage(
+			reinterpret_cast<char*>(buf), kBufSize, &remote, this, ingressTime);
+		if (msg != nullptr)
 		{
 			GPTP_LOG_VERBOSE("Processing message");
 			GPTP_LOG_VERBOSE("EtherPort::maybeProcessMessage   clockId:%s",
 			 port_identity->getClockIdentity().getIdentityString().c_str());
 			msg->processMessage(this);
-			if (msg->garbage())
-			{
-				delete msg;
-			}
 		} 
 		else
 		{
@@ -551,20 +547,15 @@ bool EtherPort::_processEvent( Event e )
 			setStationState(STATION_STATE_ETHERNET_READY);
 			if (getTestMode())
 			{
-				APMessageTestStatus *testStatusMsg = new APMessageTestStatus(this);
-				if (testStatusMsg) {
-					testStatusMsg->sendPort(this);
-					delete testStatusMsg;
-				}
+				APMessageTestStatus testStatusMsg(this);
+				testStatusMsg.sendPort(this);
 			}
 			if (!isGM) {
 				// Send an initial signalling message
-				PTPMessageSignalling *sigMsg = new PTPMessageSignalling(this);
-				if (sigMsg) {
-					sigMsg->setintervals(PTPMessageSignalling::sigMsgInterval_NoSend, getSyncInterval(), PTPMessageSignalling::sigMsgInterval_NoSend);
-					sigMsg->sendPort(this, NULL);
-					delete sigMsg;
-				}
+				PTPMessageSignalling sigMsg(this);
+				sigMsg.setintervals(PTPMessageSignalling::sigMsgInterval_NoSend,
+					 getSyncInterval(), PTPMessageSignalling::sigMsgInterval_NoSend);
+				sigMsg.sendPort(this, NULL);
 
 				startSyncReceiptTimer((unsigned long long)
 					 (SYNC_RECEIPT_TIMEOUT_MULTIPLIER *
@@ -619,12 +610,10 @@ bool EtherPort::_processEvent( Event e )
 
 			if (!isGM) {
 				// Send an initial signaling message
-				PTPMessageSignalling *sigMsg = new PTPMessageSignalling(this);
-				if (sigMsg) {
-					sigMsg->setintervals(PTPMessageSignalling::sigMsgInterval_NoSend, getSyncInterval(), PTPMessageSignalling::sigMsgInterval_NoSend);
-					sigMsg->sendPort(this, NULL);
-					delete sigMsg;
-				}
+				PTPMessageSignalling sigMsg(this);
+				sigMsg.setintervals(PTPMessageSignalling::sigMsgInterval_NoSend,
+				 getSyncInterval(), PTPMessageSignalling::sigMsgInterval_NoSend);
+				sigMsg.sendPort(this, NULL);
 
 				startSyncReceiptTimer((unsigned long long)
 					 (SYNC_RECEIPT_TIMEOUT_MULTIPLIER *
@@ -695,8 +684,8 @@ bool EtherPort::_processEvent( Event e )
 		{
 			Timestamp req_timestamp;
 
-			PTPMessagePathDelayReq *pdelay_req =
-			    new PTPMessagePathDelayReq(this);
+			std::shared_ptr<PTPMessagePathDelayReq> pdelay_req =
+			    std::make_shared<PTPMessagePathDelayReq>(this);
 			std::shared_ptr<PortIdentity> dest_id = getPortIdentity();
 			pdelay_req->setPortIdentity(dest_id);
 
@@ -706,9 +695,6 @@ bool EtherPort::_processEvent( Event e )
 				pdelay_req->setTimestamp(pending);
 			}
 
-			if (last_pdelay_req != NULL) {
-				delete last_pdelay_req;
-			}
 			setLastPDelayReq(pdelay_req);
 
 			getTxLock();
@@ -812,10 +798,6 @@ bool EtherPort::_processEvent( Event e )
 			abort();
 		}
 		last_pdelay_resp_fwup->processMessage(this);
-		if (last_pdelay_resp_fwup->garbage()) {
-			delete last_pdelay_resp_fwup;
-			this->setLastPDelayRespFollowUp(NULL);
-		}
 		pdelay_rx_lock->unlock();
 		break;
 	case PDELAY_RESP_RECEIPT_TIMEOUT_EXPIRES:
@@ -1009,15 +991,23 @@ void EtherPort::timestamper_init()
 }
 
 int EtherPort::getTxTimestamp
-( PTPMessageCommon *msg, Timestamp &timestamp, unsigned &counter_value,
+( std::shared_ptr<PTPMessageCommon> msg, Timestamp &timestamp, unsigned &counter_value,
   bool last )
 {
 	std::shared_ptr<PortIdentity> identity =	msg->getPortIdentity();
 	return getTxTimestamp(identity, msg->getMessageId(), timestamp, counter_value, last);
 }
 
+int EtherPort::getTxTimestamp
+(const PTPMessageCommon& msg, Timestamp &timestamp, unsigned &counter_value,
+  bool last )
+{
+	std::shared_ptr<PortIdentity> identity =	msg.getPortIdentity();
+	return getTxTimestamp(identity, msg.getMessageId(), timestamp, counter_value, last);
+}
+
 int EtherPort::getRxTimestamp
-( PTPMessageCommon * msg, Timestamp & timestamp, unsigned &counter_value,
+( std::shared_ptr<PTPMessageCommon> msg, Timestamp & timestamp, unsigned &counter_value,
   bool last )
 {
 	std::shared_ptr<PortIdentity> identity =	msg->getPortIdentity();
@@ -1025,7 +1015,7 @@ int EtherPort::getRxTimestamp
 }
 
 int EtherPort::getTxTimestamp
-(std::shared_ptr<PortIdentity> sourcePortIdentity, PTPMessageId messageId,
+(std::shared_ptr<PortIdentity> sourcePortIdentity, const PTPMessageId& messageId,
  Timestamp &timestamp, unsigned &counter_value, bool last )
 {
 	std::shared_ptr<EtherTimestamper> timestamper = 
@@ -1041,7 +1031,7 @@ int EtherPort::getTxTimestamp
 }
 
 int EtherPort::getRxTimestamp
-( std::shared_ptr<PortIdentity> sourcePortIdentity, PTPMessageId messageId,
+( std::shared_ptr<PortIdentity> sourcePortIdentity, const PTPMessageId& messageId,
   Timestamp &timestamp, unsigned &counter_value, bool last )
 {
 	std::shared_ptr<EtherTimestamper> timestamper =
@@ -1099,7 +1089,7 @@ void EtherPort::syncDone() {
 	}
 }
 
-void EtherPort::setLastSync(PTPMessageSync * msg, bool lockIt)
+void EtherPort::setLastSync(std::shared_ptr<PTPMessageSync> msg, bool lockIt)
 {
 	if (lockIt)
 	{
@@ -1112,7 +1102,22 @@ void EtherPort::setLastSync(PTPMessageSync * msg, bool lockIt)
 	}
 }
 
-PTPMessageSync* EtherPort::getLastSync(bool lockIt)
+void EtherPort::setLastSync(const PTPMessageSync& msg, bool lockIt)
+{
+	if (lockIt)
+	{
+		std::lock_guard<std::mutex> lock(gLastSyncMutex);
+		last_sync = nullptr;
+		last_sync = std::make_shared<PTPMessageSync>(msg);
+	}
+	else
+	{
+		last_sync = nullptr;
+		last_sync = std::make_shared<PTPMessageSync>(msg);
+	}
+}
+
+std::shared_ptr<PTPMessageSync> EtherPort::getLastSync(bool lockIt)
 {
 	if (lockIt)
 	{
@@ -1125,7 +1130,7 @@ PTPMessageSync* EtherPort::getLastSync(bool lockIt)
 	}
 }
 
-void EtherPort::setLastFollowUp(PTPMessageFollowUp *msg)
+void EtherPort::setLastFollowUp(std::shared_ptr<PTPMessageFollowUp> msg)
 {
 	std::lock_guard<std::mutex> lock(gLastFwupMutex);
 	last_fwup = *msg;
@@ -1144,7 +1149,7 @@ const PTPMessageFollowUp& EtherPort::getLastFollowUp(bool lockIt) const
 	}
 }
 
-void EtherPort::setLastDelayReq(PTPMessageDelayReq *msg)
+void EtherPort::setLastDelayReq(std::shared_ptr<PTPMessageDelayReq> msg)
 {
 	std::lock_guard<std::mutex> lock(gLastDelayReqMutex);
 	last_delay_req = *msg;
@@ -1169,7 +1174,7 @@ const PTPMessageDelayReq& EtherPort::getLastDelayReq(bool lockIt) const
 	}
 }
 
-void EtherPort::setLastDelayResp(PTPMessageDelayResp *msg)
+void EtherPort::setLastDelayResp(std::shared_ptr<PTPMessageDelayResp> msg)
 {
 	std::lock_guard<std::mutex> lock(gLastDelayRespMutex);
 	last_delay_resp = *msg;

@@ -76,28 +76,6 @@
 #define NEGATIVE_TIME_JUMP 0.0
 
 /**
- * @brief Provides the clock quality abstraction.
- * Represents the quality of the clock
- * Defined at IEEE 802.1AS-2011
- * Clause 6.3.3.8
- */
-struct ClockQuality {
-	unsigned char cq_class;				/*!< Clock Class - Clause 8.6.2.2
-										  Denotes the tracebility of the synchronized time
-										  distributed by a clock master when it is grandmaster. */
-	unsigned char clockAccuracy; 		/*!< Clock Accuracy - clause 8.6.2.3.
-										  Indicates the expected time accuracy of
-										  a clock master.*/
-	int16_t offsetScaledLogVariance;	/*!< ::Offset Scaled log variance - Clause 8.6.2.4.
-										  Is the scaled, offset representation
-										  of an estimate of the PTP variance. The
-										  PTP variance characterizes the
-										  precision and frequency stability of the clock
-										  master. The PTP variance is the square of
-										  PTPDEV (See B.1.3.2). */
-};
-
-/**
  * @brief Provides the 1588 clock interface
  */
 class IEEE1588Clock {
@@ -249,7 +227,7 @@ public:
    * @param  msg [in] PTP announce message
    * @return TRUE if the 1588 clock
    */
-  bool isBetterThan(PTPMessageAnnounce * msg);
+  bool isBetterThan(const PTPMessageAnnounce& msg);
 
   /**
    * @brief  Gets the Last Best clock identity
@@ -333,7 +311,7 @@ public:
    * @param  clock_quality ClockQuality object to be set
    * @return void
    */
-  void setGrandmasterClockQuality( ClockQuality clock_quality ) {
+  void setGrandmasterClockQuality(const ClockQuality& clock_quality ) {
 	  grandmaster_clock_quality = clock_quality;
   }
 

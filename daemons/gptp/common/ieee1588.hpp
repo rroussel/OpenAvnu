@@ -65,9 +65,44 @@
 #define GPTP_EC_FAILURE     -1      /*!< Generic error */
 #define GPTP_EC_EAGAIN      -72     /*!< Error: Try again */
 
+/**
+ * @brief Provides the clock quality abstraction.
+ * Represents the quality of the clock
+ * Defined at IEEE 802.1AS-2011
+ * Clause 6.3.3.8
+ */
+class ClockQuality {
+	public:
+      ClockQuality() :
+        cq_class(0),
+        clockAccuracy(0),
+        offsetScaledLogVariance(0)
+      {
+      }
+
+      bool operator==(const ClockQuality& other)
+      {
+      	return cq_class == other.cq_class && clockAccuracy == other.clockAccuracy &&
+      	 offsetScaledLogVariance == other.offsetScaledLogVariance;
+      }
+
+      unsigned char cq_class;         /*!< Clock Class - Clause 8.6.2.2
+                                         Denotes the tracebility of the synchronized time
+                                         distributed by a clock master when it is grandmaster. */
+      unsigned char clockAccuracy;    /*!< Clock Accuracy - clause 8.6.2.3.
+                                         Indicates the expected time accuracy of
+                                         a clock master.*/
+      int16_t offsetScaledLogVariance;/*!< ::Offset Scaled log variance - Clause 8.6.2.4.
+                                         Is the scaled, offset representation
+                                         of an estimate of the PTP variance. The
+                                         PTP variance characterizes the
+                                         precision and frequency stability of the clock
+                                         master. The PTP variance is the square of
+                                         PTPDEV (See B.1.3.2). */
+};
+
 
 class LinkLayerAddress;
-struct ClockQuality;
 class PortIdentity;
 class PTPMessageId;
 class PTPMessageCommon;
@@ -150,6 +185,11 @@ class ClockIdentity {
 	ClockIdentity& operator=(const ClockIdentity& other)
 	{
 		return assign(other);
+	}
+
+	bool operator ==(const ClockIdentity& other)
+	{
+		return 0 == memcmp(id, other.id, PTP_CLOCK_IDENTITY_LENGTH);
 	}
 
 	ClockIdentity& assign(const ClockIdentity& other)
@@ -328,6 +368,15 @@ public:
 	Timestamp& operator=(const Timestamp& other)
 	{
 		return assign(other);
+	}
+
+	bool operator==(const Timestamp& other)
+	{
+		return  0 == memcmp(output_string, other.output_string, MAX_TSTAMP_STRLEN) &&
+		 nanoseconds == other.nanoseconds &&
+		 seconds_ls == other.seconds_ls &&
+		 seconds_ms == other.seconds_ms &&
+		 _version == other._version;
 	}
 
 	Timestamp& assign(const Timestamp& other)
@@ -549,7 +598,7 @@ static inline void TIMESTAMP_ADD_NS( Timestamp &ts, uint64_t ns ) {
  * @param  port [in] IEEE1588 port
  * @return PTP message instance of PTPMessageCommon
  */
-PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 		LinkLayerAddress *remote,
 		EtherPort *port, const Timestamp& ingressTime);
 

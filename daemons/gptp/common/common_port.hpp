@@ -92,6 +92,16 @@ public:
 		return assign(other);
 	}
 
+	bool operator ==(const PortIdentity& other)
+	{
+		return clock_id == other.clock_id && portNumber == other.portNumber;
+	}
+
+	bool operator !=(const PortIdentity& other)
+	{
+		return !(*this == other);
+	}
+
 	PortIdentity& assign(const PortIdentity& other)
 	{
 		if (this != &other)
@@ -470,9 +480,14 @@ public:
 
 	CommonPort( PortInit_t *portInit );
 	virtual ~CommonPort();
+private:
+	CommonPort();
 
-	virtual PTPMessageAnnounce *calculateERBest(bool lockIt = true) = 0;
-	virtual void setQualifiedAnnounce(PTPMessageAnnounce *annc) = 0;
+public:
+
+	virtual PTPMessageAnnounce& calculateERBest(bool lockIt = true) = 0;
+	virtual void setQualifiedAnnounce(const PTPMessageAnnounce &annc) = 0;
+	virtual void resetQualifiedAnnounce() = 0;
 
 	/**
 	 * @brief Global media dependent port initialization

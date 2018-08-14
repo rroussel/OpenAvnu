@@ -245,9 +245,6 @@ protected:
 	Timestamp _timestamp;	/*!< PTP message timestamp */
 	unsigned _timestamp_counter_value;	/*!< PTP timestamp counter value */
 
-	// TODO: remove this when using std::shared_ptr
-	bool _gc;	/*!< Garbage collection flag */
-
 private:
 	static int sMaxBadDiffCount;
 	static int sSuccessDiffCount;
@@ -284,6 +281,8 @@ protected:
 	{
 		return assign(other);
 	}
+
+	bool operator ==(const PTPMessageCommon& other);
 
 	void MaybePerformCalculations(EtherPort* port);
 
@@ -341,7 +340,7 @@ protected:
 	 * @brief  Gets the MessageID of the PTP message.
 	 * @return MessageId
 	 */
-	PTPMessageId getMessageId(void) {
+	const PTPMessageId getMessageId(void) const {
 		return PTPMessageId(messageType, sequenceId);
 	}
 	/**
@@ -404,14 +403,6 @@ protected:
 	}
 
 	/**
-	 * @brief Gets the garbage collection status
-	 * @return TRUE when it needs to be clean. FALSE otherwise.
-	 */
-	bool garbage() {
-		return _gc;
-	}
-
-	/**
 	 * @brief  Determine whether the message was sent by given communication technology, uuid, and
 	 * port id fields
 	 * @param  portIdentity PortIdentity value
@@ -445,7 +436,7 @@ protected:
 
 	void logCommonHeader();
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -502,13 +493,18 @@ class PathTraceTLV {
 		}
 	}
 
+	bool operator ==(const PathTraceTLV& other)
+	{
+		return tlvType == other.tlvType && identityList == other.identityList;
+	}
+
 	/**
 	 * @brief  Appends new ClockIdentity to internal ClockIdentity list
 	 * @param  id ClockIdentity to be appended
 	 * @return void
 	 */
-	void appendClockIdentity(ClockIdentity * id) {
-		identityList.push_back(*id);
+	void appendClockIdentity(const ClockIdentity& id) {
+		identityList.push_back(id);
 	}
 
 	/**
@@ -582,14 +578,14 @@ class PathTraceTLV {
 class PTPMessageAnnounce:public PTPMessageCommon {
  private:
 	uint8_t grandmasterIdentity[PTP_CLOCK_IDENTITY_LENGTH];
-	ClockQuality *grandmasterClockQuality;
+	ClockQuality grandmasterClockQuality;
 
 	PathTraceTLV tlv;
 
 	uint16_t currentUtcOffset;
 	unsigned char grandmasterPriority1;
 	unsigned char grandmasterPriority2;
-	ClockQuality *clockQuality;
+	ClockQuality clockQuality;
 	uint16_t stepsRemoved;
 	unsigned char timeSource;
 
@@ -608,19 +604,46 @@ public:
 
 	void VerboseLog();
 
+	bool operator ==(const PTPMessageAnnounce& other)
+	{
+		return 0 == memcmp(grandmasterIdentity, other.grandmasterIdentity, PTP_CLOCK_IDENTITY_LENGTH) &&
+			grandmasterClockQuality == other.grandmasterClockQuality &&
+			tlv == other.tlv &&
+			currentUtcOffset == other.currentUtcOffset &&
+			grandmasterPriority1 == other.grandmasterPriority1 &&
+			grandmasterPriority2 == other.grandmasterPriority2 &&
+			clockQuality == other.clockQuality &&
+			stepsRemoved == other.stepsRemoved &&
+			timeSource == other.timeSource;
+	}
+
+	void clear()
+	{
+		memset(grandmasterIdentity, 0, PTP_CLOCK_IDENTITY_LENGTH);
+		tlv = PathTraceTLV();
+
+		currentUtcOffset = 0;
+		grandmasterPriority1 = 0;
+		grandmasterPriority2 = 0;
+		stepsRemoved = 0;
+		timeSource = 0;
+	}
+
 	/**
 	 * @brief  Compare gramdmaster's capabilities comming on the
 	 * announce messages against the current grandmaster capabilities.
 	 * @param  msg [in] PTPMessageAnnounce to be compared
 	 * @return TRUE if it is better. FALSE otherwise.
 	 */
-	bool isBetterThan(PTPMessageAnnounce * msg);
+	bool isBetterThan(std::shared_ptr<PTPMessageAnnounce> msg);
+
+	bool isBetterThan(const PTPMessageAnnounce& msg);
 
 	/**
 	 * @brief  Gets grandmaster's priority1 value
 	 * @return Grandmaster priority1
 	 */
-	unsigned char getGrandmasterPriority1(void) {
+	unsigned char getGrandmasterPriority1() const {
 		return grandmasterPriority1;
 	}
 
@@ -628,7 +651,7 @@ public:
 	 * @brief  Gets grandmaster's priority2 value
 	 * @return Grandmaster priority2
 	 */
-	unsigned char getGrandmasterPriority2(void) {
+	unsigned char getGrandmasterPriority2() const {
 		return grandmasterPriority2;
 	}
 
@@ -636,7 +659,7 @@ public:
 	 * @brief  Gets grandmaster clock quality
 	 * @return Pointer to a ClockQuality object.
 	 */
-	ClockQuality *getGrandmasterClockQuality(void) {
+	const ClockQuality& getGrandmasterClockQuality() const {
 		return grandmasterClockQuality;
 	}
 
@@ -644,7 +667,7 @@ public:
 	 * @brief  Gets the steps removed value. See IEEE 802.1AS-2011 Clause 10.3.3
 	 * @return steps removed value
 	 */
-	uint16_t getStepsRemoved(void) {
+	uint16_t getStepsRemoved() {
 		return stepsRemoved;
 	}
 
@@ -653,7 +676,7 @@ public:
 	 * @param  identity [out] Grandmaster identity
 	 * @return void
 	 */
-	void getGrandmasterIdentity(char *identity) {
+	void getGrandmasterIdentity(char *identity) const {
 		memcpy(identity, grandmasterIdentity, PTP_CLOCK_IDENTITY_LENGTH);
 	}
 
@@ -684,7 +707,7 @@ public:
 	 */
 	bool sendPort(EtherPort *port, std::shared_ptr<PortIdentity> destIdentity);
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -746,7 +769,7 @@ class PTPMessageSync : public PTPMessageCommon {
 	 */
 	bool sendPort(EtherPort *port, std::shared_ptr<PortIdentity> destIdentity);
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -786,9 +809,11 @@ class scaledNs {
 	 */
 	scaledNs& operator=(const scaledNs& other)
 	{
-		this->ms = other.ms;
-		this->ls = other.ls;
-
+		if (this != &other)
+		{
+			ms = other.ms;
+			ls = other.ls;
+		}
 		return *this;
 	}
 
@@ -1023,7 +1048,7 @@ public:
 		tlv.setScaledLastGmPhaseChange(fup->getScaledLastGmPhaseChange());
 	}
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -1100,7 +1125,7 @@ class PTPMessageDelayReq : public PTPMessageCommon {
 		originTimestamp = timestamp;
 	}
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -1204,7 +1229,7 @@ public:
 	void buildCommonHeader(uint8_t * buf);
 #endif
 	
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -1229,6 +1254,25 @@ class PTPMessagePathDelayReq : public PTPMessageCommon {
 	 * @brief Builds the PTPMessagePathDelayReq message
 	 */
 	PTPMessagePathDelayReq(EtherPort *port);
+
+	PTPMessagePathDelayReq& operator=(const PTPMessagePathDelayReq& other)
+	{
+		if (this != &other)
+		{
+			PTPMessageCommon::assign(other);
+			originTimestamp = other.originTimestamp;
+		}
+		return *this;
+	}
+	bool operator==(const PTPMessagePathDelayReq& other)
+	{
+		return originTimestamp == other.originTimestamp &&
+		  PTPMessageCommon::operator ==(static_cast<PTPMessageCommon>(other));
+	}
+	bool operator!=(const PTPMessagePathDelayReq& other)
+	{
+		return !(*this == other);
+	}
 
 	/**
 	 * @brief  Assembles PTPMessagePathDelayReq message on the
@@ -1255,7 +1299,7 @@ class PTPMessagePathDelayReq : public PTPMessageCommon {
 		return originTimestamp;
 	}
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -1279,6 +1323,27 @@ public:
 	 */
 	PTPMessagePathDelayResp( EtherPort *port );
 
+	PTPMessagePathDelayResp& operator=(const PTPMessagePathDelayResp& other)
+	{
+		if (this != &other)
+		{
+			PTPMessageCommon::assign(other);
+			requestingPortIdentity = other.requestingPortIdentity;
+			requestReceiptTimestamp = other.requestReceiptTimestamp;
+		}
+		return *this;
+	}
+
+	bool operator==(const PTPMessagePathDelayResp& other)
+	{
+		return requestingPortIdentity == other.requestingPortIdentity &&
+		  requestReceiptTimestamp == other.requestReceiptTimestamp &&
+		  PTPMessageCommon::operator ==(static_cast<PTPMessageCommon>(other));
+	}
+	bool operator!=(const PTPMessagePathDelayResp& other)
+	{
+		return !(*this == other);
+	}
 	/**
 	 * @brief  Assembles PTPMessagePathDelayResp message on the
 	 * EtherPort payload
@@ -1326,7 +1391,7 @@ public:
 		return requestReceiptTimestamp;
 	}
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -1350,6 +1415,10 @@ public:
 	 * @brief Destroys the PTPMessagePathDelayRespFollowUp object
 	 */
 	~PTPMessagePathDelayRespFollowUp();
+
+	bool operator == (const PTPMessagePathDelayRespFollowUp& other);
+
+	bool operator != (const PTPMessagePathDelayRespFollowUp& other);
 
 	/**
 	 * @brief  Assembles PTPMessageRespFollowUp message on the
@@ -1398,7 +1467,7 @@ public:
 		return requestingPortIdentity;
 	}
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 
@@ -1556,7 +1625,7 @@ public:
 	 */
 	void processMessage(EtherPort *port);
 
-	friend PTPMessageCommon *buildPTPMessage(char *buf, size_t size,
+	friend std::shared_ptr<PTPMessageCommon> buildPTPMessage(char *buf, size_t size,
 	 LinkLayerAddress *remote, EtherPort *port, const Timestamp& ingressTime);
 };
 

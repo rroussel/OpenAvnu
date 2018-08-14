@@ -61,12 +61,11 @@ PTPMessageCommon::PTPMessageCommon(CommonPort *port)
 	// Fill in fields using port/clock dataset as a template
 	versionPTP = GPTP_VERSION;
 	versionNetwork = PTP_NETWORK_VERSION;
-	domainNumber = port->getClock()->getDomain();
+	domainNumber = port && port->getClock() ? port->getClock()->getDomain() : 0;
 	// Set flags as necessary
 	memset(flags, 0, PTP_FLAGS_LENGTH);
 	flags[PTP_PTPTIMESCALE_BYTE] |= (0x1 << PTP_PTPTIMESCALE_BIT);
 	correctionField = 0;
-	_gc = false;
 
 	sourcePortIdentity = std::make_shared<PortIdentity>();
 	sequenceId = 0;
@@ -98,11 +97,27 @@ PTPMessageCommon::assign(const PTPMessageCommon& other)
 
 		_timestamp = other._timestamp;
 		_timestamp_counter_value = other._timestamp_counter_value;
-		_gc = other._gc;
 	}
 	return *this;
 }
 
+bool PTPMessageCommon::operator ==(const PTPMessageCommon& other)
+{
+	return versionPTP == other.versionPTP &&
+		versionNetwork == other.versionNetwork &&
+		messageType == other.messageType &&
+		*sourcePortIdentity == *other.sourcePortIdentity &&
+		sequenceId == other.sequenceId &&
+		control == other.control &&
+		memcmp(flags, other.flags, 2) &&
+		messageLength == other.messageLength &&
+		logMeanMessageInterval == other.logMeanMessageInterval &&
+		correctionField == other.correctionField &&
+		domainNumber == other.domainNumber &&
+		_timestamp == other._timestamp &&
+		_timestamp_counter_value == other._timestamp_counter_value;
+}
+	
 /* Determine whether the message was sent by given communication technology,
    uuid, and port id fields */
 bool PTPMessageCommon::isSenderEqual(const PortIdentity& portIdentity)
@@ -133,7 +148,7 @@ void PTPMessageCommon::MaybePerformCalculations(EtherPort *port)
 			std::shared_ptr<PortIdentity> respPortIdentity = port->getPortIdentity();
 
 			GPTP_LOG_DEBUG("MaybePerformCalculations Processing as slave.");
-			PTPMessageSync *sync = port->getLastSync(false);
+			std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
 			PTPMessageDelayReq req = port->getLastDelayReq(false);
 			PTPMessageDelayResp resp = port->getLastDelayResp(false);
 			PTPMessageFollowUp fup = port->getLastFollowUp(false);
@@ -392,12 +407,12 @@ void PTPMessageCommon::MaybePerformCalculations(EtherPort *port)
 	}	
 }
 
-PTPMessageCommon *buildPTPMessage
+std::shared_ptr<PTPMessageCommon> buildPTPMessage
 (char *buf, size_t size, LinkLayerAddress *remote, EtherPort *port, 
  const Timestamp& ingressTime)
 {
 	OSTimer *timer = port->getTimerFactory()->createTimer();
-	PTPMessageCommon *msg = NULL;
+	std::shared_ptr<PTPMessageCommon> msg = nullptr;
 	PTPMessageId messageId;
 	MessageType messageType;
 	unsigned char tspec_msg_t = 0;
@@ -518,7 +533,7 @@ PTPMessageCommon *buildPTPMessage
 			goto abort;
 		}
 		{
-			PTPMessageSync *sync_msg = new PTPMessageSync();
+			std::shared_ptr<PTPMessageSync> sync_msg = std::make_shared<PTPMessageSync>();
 			// Copy in v2 sync specific fields
 			memcpy(&(sync_msg->originTimestamp.seconds_ms),
 			       buf + PTP_SYNC_SEC_MS(PTP_SYNC_OFFSET),
@@ -549,7 +564,7 @@ PTPMessageCommon *buildPTPMessage
 			goto abort;
 		}
 		{
-			PTPMessageFollowUp *followup_msg =  new PTPMessageFollowUp();
+			std::shared_ptr<PTPMessageFollowUp> followup_msg = std::make_shared<PTPMessageFollowUp>();
 			// Copy in v2 sync specific fields
 			memcpy(&
 			       (followup_msg->
@@ -591,7 +606,7 @@ PTPMessageCommon *buildPTPMessage
 			msg = followup_msg;
 			msg->setPortIdentity(sourcePortIdentity);
 
-			port->setLastFollowUp(static_cast<PTPMessageFollowUp*>(msg));
+			port->setLastFollowUp(std::dynamic_pointer_cast<PTPMessageFollowUp>(msg));
 			port->HaveFollowup(true);
 
 			GPTP_LOG_VERBOSE("Received Follow Up  precideOriginTimestamp:%d", followup_msg->preciseOriginTimestamp.seconds_ms);
@@ -612,7 +627,7 @@ PTPMessageCommon *buildPTPMessage
 
 			timestamp = ingressTime;
 			std::shared_ptr<PortIdentity> reqPortId = port->getPortIdentity();
-			msg = new PTPMessageDelayReq();
+			msg = std::make_shared<PTPMessageDelayReq>();
 			msg->correctionField = rawCorrectionField;
 			msg->setPortIdentity(reqPortId);
 		}
@@ -626,7 +641,7 @@ PTPMessageCommon *buildPTPMessage
 				GPTP_LOG_ERROR("ERROR  delay_resp message length is invalid.  size:%d  calculated:%d", size, (PTP_COMMON_HDR_LENGTH + PTP_DELAY_RESP_LENGTH));
 				goto abort;
 			}
-			PTPMessageDelayResp *resp = new PTPMessageDelayResp(port);
+			std::shared_ptr<PTPMessageDelayResp> resp = std::make_shared<PTPMessageDelayResp>(port);
 			resp->sequenceId = sequenceId;			
 			resp->setPortIdentity(sourcePortIdentity);
 			memcpy(&(resp->requestReceiptTimestamp.seconds_ms),
@@ -668,8 +683,8 @@ PTPMessageCommon *buildPTPMessage
 			goto abort;
 		}
 		{
-			PTPMessagePathDelayReq *pdelay_req_msg =
-			    new PTPMessagePathDelayReq();
+			std::shared_ptr<PTPMessagePathDelayReq> pdelay_req_msg =
+			    std::make_shared<PTPMessagePathDelayReq>();
 			pdelay_req_msg->messageType = messageType;
 
 #if 0
@@ -716,8 +731,8 @@ PTPMessageCommon *buildPTPMessage
 			goto abort;
 		}
 		{
-			PTPMessagePathDelayResp *pdelay_resp_msg =
-			    new PTPMessagePathDelayResp();
+			std::shared_ptr<PTPMessagePathDelayResp> pdelay_resp_msg =
+			    std::make_shared<PTPMessagePathDelayResp>();
 			pdelay_resp_msg->messageType = messageType;
 			// Copy in v2 PDelay Response specific fields
 			pdelay_resp_msg->requestingPortIdentity =
@@ -775,8 +790,8 @@ PTPMessageCommon *buildPTPMessage
 //       goto abort;
 //     }
 		{
-			PTPMessagePathDelayRespFollowUp *pdelay_resp_fwup_msg =
-			    new PTPMessagePathDelayRespFollowUp();
+			std::shared_ptr<PTPMessagePathDelayRespFollowUp> pdelay_resp_fwup_msg =
+			    std::make_shared<PTPMessagePathDelayRespFollowUp>();
 			pdelay_resp_fwup_msg->messageType = messageType;
 			// Copy in v2 PDelay Response specific fields
 			pdelay_resp_fwup_msg->requestingPortIdentity =
@@ -840,7 +855,7 @@ PTPMessageCommon *buildPTPMessage
 		GPTP_LOG_VERBOSE("*** Received Announce message: %d", sequenceId);
 
 		{
-			PTPMessageAnnounce *annc = new PTPMessageAnnounce();
+			std::shared_ptr<PTPMessageAnnounce> annc = std::make_shared<PTPMessageAnnounce>();
 			int tlv_length = size - PTP_COMMON_HDR_LENGTH + PTP_ANNOUNCE_LENGTH;
 
 			memcpy(&(annc->currentUtcOffset),
@@ -855,15 +870,15 @@ PTPMessageCommon *buildPTPMessage
 			       PTP_ANNOUNCE_GRANDMASTER_PRIORITY1
 			       (PTP_ANNOUNCE_OFFSET),
 			       sizeof(annc->grandmasterPriority1));
-			memcpy( annc->grandmasterClockQuality,
+			memcpy( &annc->grandmasterClockQuality,
 				buf+
 				PTP_ANNOUNCE_GRANDMASTER_CLOCK_QUALITY
 				(PTP_ANNOUNCE_OFFSET),
-				sizeof( *annc->grandmasterClockQuality ));
+				sizeof( annc->grandmasterClockQuality ));
 			annc->
-			  grandmasterClockQuality->offsetScaledLogVariance =
+			  grandmasterClockQuality.offsetScaledLogVariance =
 			  PLAT_ntohs
-			  ( annc->grandmasterClockQuality->
+			  ( annc->grandmasterClockQuality.
 			    offsetScaledLogVariance );
 			memcpy(&(annc->grandmasterPriority2),
 			       buf +
@@ -902,7 +917,7 @@ PTPMessageCommon *buildPTPMessage
 	case SIGNALLING_MESSAGE:
 		GPTP_LOG_DEBUG("*** Received SIGNALLING message: %d", sequenceId);
 		{
-			PTPMessageSignalling *signallingMsg = new PTPMessageSignalling();
+			std::shared_ptr<PTPMessageSignalling> signallingMsg = std::make_shared<PTPMessageSignalling>();
 
 			memcpy(&(signallingMsg->targetPortIdentify),
 			       buf + PTP_SIGNALLING_TARGET_PORT_IDENTITY(PTP_SIGNALLING_OFFSET),
@@ -922,8 +937,6 @@ PTPMessageCommon *buildPTPMessage
 
 		goto abort;
 	}
-
-	msg->_gc = false;
 
 	GPTP_LOG_VERBOSE("buildPTPMessage    port->getClock()->priority1:%d  port->getClock->clockIdentity:%s",
 	 port->getClock()->getPriority1(),
@@ -989,8 +1002,7 @@ bool PTPMessageCommon::getTxTimestamp( EtherPort *port, uint32_t link_speed )
 	unsigned req = TX_TIMEOUT_BASE;
 	int iter = TX_TIMEOUT_ITER;
 
-	ts_good = port->getTxTimestamp
-		( this, tx_timestamp, unused, false );
+	ts_good = port->getTxTimestamp(*this, tx_timestamp, unused, false);
 	while( ts_good != GPTP_EC_SUCCESS && iter-- != 0 )
 	{
 		timer->sleep(req);
@@ -998,7 +1010,7 @@ bool PTPMessageCommon::getTxTimestamp( EtherPort *port, uint32_t link_speed )
 			GPTP_LOG_ERROR(
 				"Error (TX) timestamping PDelay request "
 				"(Retrying-%d), error=%d", iter, ts_good);
-		ts_good = port->getTxTimestamp(this, tx_timestamp, unused , iter == 0);
+		ts_good = port->getTxTimestamp(*this, tx_timestamp, unused , iter == 0);
 		req *= 2;
 	}
 
@@ -1026,8 +1038,6 @@ bool PTPMessageCommon::getTxTimestamp( EtherPort *port, uint32_t link_speed )
 
 void PTPMessageCommon::processMessage(EtherPort *port)
 {
-	_gc = true;
-	return;
 }
 
 void PTPMessageCommon::buildCommonHeader(uint8_t * buf)
@@ -1121,12 +1131,17 @@ PTPMessageCommon::~PTPMessageCommon(void)
 PTPMessageAnnounce::PTPMessageAnnounce()
 {
 	messageType = ANNOUNCE_MESSAGE;
-	grandmasterClockQuality = new ClockQuality();
+
+	memset(grandmasterIdentity, 0, PTP_CLOCK_IDENTITY_LENGTH);
+	currentUtcOffset = 0;
+	grandmasterPriority1 = 0;
+	grandmasterPriority2 = 0;
+	stepsRemoved = 0;
+	timeSource = 0;
 }
 
 PTPMessageAnnounce::~PTPMessageAnnounce()
 {
-	delete grandmasterClockQuality;
 }
 
 void PTPMessageAnnounce::VerboseLog()
@@ -1136,8 +1151,8 @@ void PTPMessageAnnounce::VerboseLog()
 	GPTP_LOG_VERBOSE("AnnounceMessage:  grandmasterClockQuality.cq_class: %d"
 	 "  grandmasterClockQuality.clockAccuracy: %d"
 	 "  grandmasterClockQuality.offsetScaledLogVariance:%d",
-	 grandmasterClockQuality->cq_class, grandmasterClockQuality->clockAccuracy,
-	 grandmasterClockQuality->offsetScaledLogVariance);
+	 grandmasterClockQuality.cq_class, grandmasterClockQuality.clockAccuracy,
+	 grandmasterClockQuality.offsetScaledLogVariance);
 
 	GPTP_LOG_VERBOSE("AnnounceMessage:  tlv.tlvType: %d", tlv.TlvType());
 	GPTP_LOG_VERBOSE("AnnounceMessage:  tlv.GetIdentities: %s", tlv.GetIdentities().c_str());
@@ -1148,50 +1163,45 @@ void PTPMessageAnnounce::VerboseLog()
 	 grandmasterPriority1);
 	GPTP_LOG_VERBOSE("AnnounceMessage:  grandmasterPriority2: %d",
 	 grandmasterPriority2);
-	if (nullptr == clockQuality)
-	{
-		GPTP_LOG_VERBOSE("AnnounceMessage:  clockQuality IS nullptr");
-	}
-	else
-	{
-		GPTP_LOG_VERBOSE("AnnounceMessage:  clockQuality.cq_class: %d"
-		 "  clockQuality.clockAccuracy: %d"
-		 "  clockQuality.offsetScaledLogVariance:%d",
-		 clockQuality->cq_class, clockQuality->clockAccuracy,
-		 clockQuality->offsetScaledLogVariance);
-	}
+
+	GPTP_LOG_VERBOSE("AnnounceMessage:  clockQuality.cq_class: %d"
+	 "  clockQuality.clockAccuracy: %d"
+	 "  clockQuality.offsetScaledLogVariance:%d",
+	 clockQuality.cq_class, clockQuality.clockAccuracy,
+	 clockQuality.offsetScaledLogVariance);
+
 	GPTP_LOG_VERBOSE("AnnounceMessage:  stepsRemoved: %d", stepsRemoved);
 	GPTP_LOG_VERBOSE("AnnounceMessage:  timeSource: %d", timeSource);
 }
 
-
-bool PTPMessageAnnounce::isBetterThan(PTPMessageAnnounce * msg)
+bool PTPMessageAnnounce::isBetterThan(const PTPMessageAnnounce& msg)
 {
 	unsigned char this1[14];
 	unsigned char that1[14];
 	uint16_t tmp;
+	const ClockQuality& gmClockQuality = msg.getGrandmasterClockQuality();
 
 	this1[0] = grandmasterPriority1;
-	that1[0] = msg->getGrandmasterPriority1();
+	that1[0] = msg.getGrandmasterPriority1();
 
-	this1[1] = grandmasterClockQuality->cq_class;
-	that1[1] = msg->getGrandmasterClockQuality()->cq_class;
+	this1[1] = grandmasterClockQuality.cq_class;
+	that1[1] = gmClockQuality.cq_class;
 
-	this1[2] = grandmasterClockQuality->clockAccuracy;
-	that1[2] = msg->getGrandmasterClockQuality()->clockAccuracy;
+	this1[2] = grandmasterClockQuality.clockAccuracy;
+	that1[2] = gmClockQuality.clockAccuracy;
 
-	tmp = grandmasterClockQuality->offsetScaledLogVariance;
+	tmp = grandmasterClockQuality.offsetScaledLogVariance;
 	tmp = PLAT_htons(tmp);
 	memcpy(this1 + 3, &tmp, sizeof(tmp));
-	tmp = msg->getGrandmasterClockQuality()->offsetScaledLogVariance;
+	tmp = gmClockQuality.offsetScaledLogVariance;
 	tmp = PLAT_htons(tmp);
 	memcpy(that1 + 3, &tmp, sizeof(tmp));
 
 	this1[5] = grandmasterPriority2;
-	that1[5] = msg->getGrandmasterPriority2();
+	that1[5] = msg.getGrandmasterPriority2();
 
 	this->getGrandmasterIdentity((char *)this1 + 6);
-	msg->getGrandmasterIdentity((char *)that1 + 6);
+	msg.getGrandmasterIdentity((char *)that1 + 6);
 
 #if 0
 	GPTP_LOG_VERBOSE("Us: ");
@@ -1205,6 +1215,11 @@ bool PTPMessageAnnounce::isBetterThan(PTPMessageAnnounce * msg)
 #endif
 
 	return (memcmp(this1, that1, 14) < 0) ? true : false;
+}
+
+bool PTPMessageAnnounce::isBetterThan(std::shared_ptr<PTPMessageAnnounce> msg)
+{
+	return isBetterThan(*msg);
 }
 
 
@@ -1293,12 +1308,9 @@ void PTPMessageSync::processMessage(EtherPort *port)
 	{
 		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
       GPTP_LOG_DEBUG("------------- PTPMessageSync::processMessage   after sync LOCK");
-		PTPMessageSync *sync = port->getLastSync(false);
-		port->setLastSync(NULL, false);
-		delete sync;
 
 		GPTP_LOG_VERBOSE("PTPMessageSync::processMessage  before setLastSync");
-		port->setLastSync(this, false);
+		port->setLastSync(*this, false);
 		GPTP_LOG_VERBOSE("PTPMessageSync::processMessage  after setLastSync");
 
 		port->HaveDelayResp(false);
@@ -1307,7 +1319,6 @@ void PTPMessageSync::processMessage(EtherPort *port)
 			port->HaveFollowup(false);
 		}
 		port->FollowupAhead(false);
-		_gc = false;
    }
    GPTP_LOG_DEBUG("------------- PTPMessageSync::processMessage   after sync UNLOCK");
 
@@ -1316,14 +1327,12 @@ void PTPMessageSync::processMessage(EtherPort *port)
 	if (flags[PTP_ASSIST_BYTE] & (0x1<<PTP_ASSIST_BIT))
 	{
 #endif
-		port->setLastSync(this);
-		_gc = false;
+		port->setLastSync(*this);
 #if CHECK_ASSIST_BIT
 	}
 	else
 	{
 		GPTP_LOG_ERROR("PTP assist flag is not set, discarding invalid sync");
-		_gc = true;
 	}
 #endif // CHECK_ASSIST_BIT
 #endif // APTP
@@ -1379,26 +1388,39 @@ PTPMessageAnnounce::PTPMessageAnnounce(CommonPort *port) :
 	PTPMessageCommon(port)
 {
 	messageType = ANNOUNCE_MESSAGE;	// This is an event message
-	sequenceId = port->getNextAnnounceSequenceId();
 	ClockIdentity id;
 	control = MESSAGE_OTHER;
 	ClockIdentity clock_identity;
 
-	id = port->getClock()->getClockIdentity();
-	tlv.appendClockIdentity(&id);
-
-	currentUtcOffset = port->getClock()->getCurrentUtcOffset();
-	grandmasterPriority1 = port->getClock()->getPriority1();
-	grandmasterPriority2 = port->getClock()->getPriority2();
-	grandmasterClockQuality = new ClockQuality();
-	*grandmasterClockQuality = port->getClock()->getClockQuality();
+	sequenceId = 0;
+	tlv.appendClockIdentity(id);
+	currentUtcOffset = 0;
+	grandmasterPriority1 = 0;
+	grandmasterPriority2 = 0;
 	stepsRemoved = 0;
-	timeSource = port->getClock()->getTimeSource();
-	clock_identity = port->getClock()->getGrandmasterClockIdentity();
-	clock_identity.getIdentityString(grandmasterIdentity);
+	timeSource = 0;
+	memset(grandmasterIdentity, 0, PTP_CLOCK_IDENTITY_LENGTH);
+	logMeanMessageInterval = 0;
 
-	logMeanMessageInterval = port->getAnnounceInterval();
-	return;
+	if (port)
+	{
+		sequenceId = port->getNextAnnounceSequenceId();
+		if (port->getClock())
+		{
+			id = port->getClock()->getClockIdentity();
+			timeSource = port->getClock()->getTimeSource();
+			clock_identity = port->getClock()->getGrandmasterClockIdentity();
+			clock_identity.getIdentityString(grandmasterIdentity);
+			grandmasterClockQuality = port->getClock()->getClockQuality();
+		}
+		tlv.appendClockIdentity(id);
+
+		currentUtcOffset = port->getClock()->getCurrentUtcOffset();
+		grandmasterPriority1 = port->getClock()->getPriority1();
+		grandmasterPriority2 = port->getClock()->getPriority2();
+		stepsRemoved = 0;
+		logMeanMessageInterval = port->getAnnounceInterval();		
+	}
 }
 
 bool PTPMessageAnnounce::sendPort(EtherPort * port,
@@ -1410,7 +1432,7 @@ bool PTPMessageAnnounce::sendPort(EtherPort * port,
 
 	uint16_t currentUtcOffset_l = PLAT_htons(currentUtcOffset);
 	uint16_t stepsRemoved_l = PLAT_htons(stepsRemoved);
-	ClockQuality clockQuality_l = *grandmasterClockQuality;
+	ClockQuality clockQuality_l = grandmasterClockQuality;
 	clockQuality_l.offsetScaledLogVariance =
 	    PLAT_htons(clockQuality_l.offsetScaledLogVariance);
 
@@ -1471,35 +1493,35 @@ void PTPMessageAnnounce::processMessage(EtherPort *port)
 	port->getClock()->deleteEventTimerLocked
 		(port, ANNOUNCE_RECEIPT_TIMEOUT_EXPIRES);
 
-	if( stepsRemoved >= 255 ) goto bail;
+	if (stepsRemoved >= 255)
+	{
+		return;
+	}
 
 	// Reject Announce message from myself
 	my_clock_identity = port->getClock()->getClockIdentity();
-	if( sourcePortIdentity->getClockIdentity() == my_clock_identity ) {
-		goto bail;
-	}
-
-	if(tlv.has(&my_clock_identity)) {
-		goto bail;
+	if (sourcePortIdentity->getClockIdentity() == my_clock_identity ||
+		tlv.has(&my_clock_identity))
+	{
+		port->getClock()->addEventTimerLocked
+			(port, ANNOUNCE_RECEIPT_TIMEOUT_EXPIRES,
+			 (unsigned long long)
+			 (ANNOUNCE_RECEIPT_TIMEOUT_MULTIPLIER *
+			  (pow
+			   ((double)2,
+				port->getAnnounceInterval()) *
+			   1000000000.0)));
+		return;
 	}
 
 	// Add message to the list
-	port->setQualifiedAnnounce( this );
+	port->setQualifiedAnnounce(*this);
 
 	port->getClock()->addEventTimerLocked(port, STATE_CHANGE_EVENT, 16000000);
- bail:
-	port->getClock()->addEventTimerLocked
-		(port, ANNOUNCE_RECEIPT_TIMEOUT_EXPIRES,
-		 (unsigned long long)
-		 (ANNOUNCE_RECEIPT_TIMEOUT_MULTIPLIER *
-		  (pow
-		   ((double)2,
-			port->getAnnounceInterval()) *
-		   1000000000.0)));
 }
 
- PTPMessageFollowUp::PTPMessageFollowUp(EtherPort * port):PTPMessageCommon
-    (port)
+PTPMessageFollowUp::PTPMessageFollowUp(EtherPort * port):
+	PTPMessageCommon(port)
 {
 	messageType = FOLLOWUP_MESSAGE;	/* This is an event message */
 	control = FOLLOWUP;
@@ -1626,7 +1648,7 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 
 	port->incCounter_ieee8021AsPortStatRxFollowUpCount();
 
-	/*PTPMessageSync *sync = port->getLastSync();
+	/* std::shared_ptr<PTPMessageSync> sync = port->getLastSync();
 	if (sync == nullptr) {
 		GPTP_LOG_ERROR("Received Follow Up but there is no sync message");
 		return;
@@ -1636,7 +1658,7 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 	{
 		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
       GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::processMessage   after sync LOCK");
-      	PTPMessageSync *sync = port->getLastSync(false);
+      	std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
 		if (sync == nullptr) {
 			GPTP_LOG_ERROR("Received Follow Up but there is no sync message");
 			return;
@@ -1678,13 +1700,6 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 	MaybePerformCalculations(port, ok);
 
 	return;
-
-// done:
-// 	_gc = true;
-// #ifndef APTP
-// 	port->setLastSync(NULL);
-// 	delete sync;
-// #endif
 }
 
 void PTPMessageFollowUp::MaybePerformCalculations(EtherPort *port,
@@ -1696,7 +1711,7 @@ void PTPMessageFollowUp::MaybePerformCalculations(EtherPort *port,
 		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
 	   GPTP_LOG_DEBUG("*** MaybePerformCalculations   (feqCompOk) after sync LOCK");
 
-		PTPMessageSync *sync = port->getLastSync(false);
+		std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
 		if (sync == nullptr) {
 			return;
 		}
@@ -1760,7 +1775,7 @@ bool PTPMessageFollowUp::ComputeFrequencies(EtherPort * port)
 	FrequencyRatio adjMaster = 0.0;
 	Timestamp correctedMasterEventTimestamp;
 
-	PTPMessageSync *sync = port->getLastSync(false);
+	std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
 	if (sync == nullptr) {
 		GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::ComputeFrequencies   sync nullptr");
 		return ok;
@@ -2343,7 +2358,6 @@ void PTPMessagePathDelayReq::processMessage(EtherPort *port)
 
 done:
 	delete timer;
-	_gc = true;
 	return;
 }
 
@@ -2415,9 +2429,12 @@ void PTPMessagePathDelayResp::processMessage( EtherPort *port )
 	uint16_t resp_port_number;
 	uint16_t oldresp_port_number;
 
-	PTPMessagePathDelayResp *old_pdelay_resp = port->getLastPDelayResp();
-	if( old_pdelay_resp == NULL ) {
-		goto bypass_verify_duplicate;
+	std::shared_ptr<PTPMessagePathDelayResp> old_pdelay_resp = port->getLastPDelayResp();
+	if (nullptr == old_pdelay_resp)
+	{
+		port->setLastPDelayResp(*this);
+		port->putPDelayRxLock();
+		return;
 	}
 
 	oldresp_id = old_pdelay_resp->getPortIdentity();
@@ -2456,17 +2473,6 @@ void PTPMessagePathDelayResp::processMessage( EtherPort *port )
 		port->setDuplicateRespCounter(0);
 	}
 
-bypass_verify_duplicate:
-	port->setLastPDelayResp(this);
-
-	if (old_pdelay_resp != NULL) {
-		delete old_pdelay_resp;
-	}
-
-	port->putPDelayRxLock();
-	_gc = false;
-
-	return;
 }
 
 bool PTPMessagePathDelayResp::sendPort(EtherPort * port,
@@ -2549,6 +2555,19 @@ PTPMessagePathDelayRespFollowUp::~PTPMessagePathDelayRespFollowUp()
 	//delete requestingPortIdentity;
 }
 
+
+bool PTPMessagePathDelayRespFollowUp::operator ==(const PTPMessagePathDelayRespFollowUp& other)
+{
+	return responseOriginTimestamp == other.responseOriginTimestamp &&
+		*requestingPortIdentity == *other.requestingPortIdentity &&
+		PTPMessageCommon::operator == (static_cast<PTPMessageCommon>(other));
+}
+
+bool PTPMessagePathDelayRespFollowUp::operator !=(const PTPMessagePathDelayRespFollowUp& other)
+{
+	return !(*this == other);
+}
+
 #define US_PER_SEC 1000000
 void PTPMessagePathDelayRespFollowUp::processMessage
 ( EtherPort *port )
@@ -2557,6 +2576,8 @@ void PTPMessagePathDelayRespFollowUp::processMessage
 	Timestamp request_tx_timestamp(0, 0, 0);
 	Timestamp remote_req_rx_timestamp(0, 0, 0);
 	Timestamp response_rx_timestamp(0, 0, 0);
+
+	std::shared_ptr<PTPMessagePathDelayResp> emptyResp = nullptr;
 
 	if (port->getPortState() == PTP_DISABLED) {
 		// Do nothing all messages should be ignored when in this state
@@ -2573,27 +2594,27 @@ void PTPMessagePathDelayRespFollowUp::processMessage
 	if (port->tryPDelayRxLock() != true)
 		return;
 
-	PTPMessagePathDelayReq *req = port->getLastPDelayReq();
-	PTPMessagePathDelayResp *resp = port->getLastPDelayResp();
+	std::shared_ptr<PTPMessagePathDelayReq> req = port->getLastPDelayReq();
+	std::shared_ptr<PTPMessagePathDelayResp> resp = port->getLastPDelayResp();
 
-	std::shared_ptr<PortIdentity> req_id;
-	std::shared_ptr<PortIdentity> resp_id;
-	std::shared_ptr<PortIdentity> fup_sourcePortIdentity;
-	std::shared_ptr<PortIdentity> resp_sourcePortIdentity;
+	std::shared_ptr<PortIdentity> req_id = nullptr;
+	std::shared_ptr<PortIdentity> resp_id = nullptr;
+	std::shared_ptr<PortIdentity> fup_sourcePortIdentity = nullptr;
+	std::shared_ptr<PortIdentity> resp_sourcePortIdentity = nullptr;
 	ClockIdentity req_clkId;
 	ClockIdentity resp_clkId;
 
 	uint16_t resp_port_number;
 	uint16_t req_port_number;
 
-	if (req == NULL) {
+	if (nullptr == req) {
 		/* Shouldn't happen */
 		GPTP_LOG_ERROR
 		    (">>> Received PDelay followup but no REQUEST exists");
 		goto abort;
 	}
 
-	if (resp == NULL) {
+	if (nullptr == resp) {
 		/* Probably shouldn't happen either */
 		GPTP_LOG_ERROR
 		    (">>> Received PDelay followup but no RESPONSE exists");
@@ -2680,13 +2701,13 @@ void PTPMessagePathDelayRespFollowUp::processMessage
 	if (request_tx_timestamp.nanoseconds ==
 	    PDELAY_PENDING_TIMESTAMP.nanoseconds) {
 		// Defer processing
-		if(
-			port->getLastPDelayRespFollowUp() != NULL &&
-			port->getLastPDelayRespFollowUp() != this )
+		if(port->getLastPDelayRespFollowUp() != nullptr &&
+			*port->getLastPDelayRespFollowUp() != *this)
 		{
-			delete port->getLastPDelayRespFollowUp();
+			std::shared_ptr<PTPMessagePathDelayRespFollowUp> empty = nullptr;
+			port->setLastPDelayRespFollowUp(empty);
 		}
-		port->setLastPDelayRespFollowUp(this);
+		port->setLastPDelayRespFollowUp(*this);
 		port->getClock()->addEventTimerLocked
 			(port, PDELAY_DEFERRED_PROCESSING, 1000000);
 		goto defer;
@@ -2782,12 +2803,8 @@ void PTPMessagePathDelayRespFollowUp::processMessage
 	port->setPeerOffset( request_tx_timestamp, remote_req_rx_timestamp );
 
  abort:
-	delete req;
-	port->setLastPDelayReq(NULL);
-	delete resp;
-	port->setLastPDelayResp(NULL);
-
-	_gc = true;
+	port->setLastPDelayReq(nullptr);
+	port->setLastPDelayResp(emptyResp);
 
  defer:
 	port->putPDelayRxLock();

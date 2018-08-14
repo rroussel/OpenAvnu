@@ -490,36 +490,34 @@ Timestamp IEEE1588Clock::getPreciseTime(void)
 	return getSystemTime();
 }
 
-bool IEEE1588Clock::isBetterThan(PTPMessageAnnounce * msg)
+bool IEEE1588Clock::isBetterThan(const PTPMessageAnnounce& msg)
 {
 	unsigned char this1[14];
 	unsigned char that1[14];
 	uint16_t tmp;
-
-	if (msg == NULL)
-		return true;
+	const ClockQuality& gmClockQuality = msg.getGrandmasterClockQuality();
 
 	this1[0] = priority1;
-	that1[0] = msg->getGrandmasterPriority1();
+	that1[0] = msg.getGrandmasterPriority1();
 
 	this1[1] = clock_quality.cq_class;
-	that1[1] = msg->getGrandmasterClockQuality()->cq_class;
+	that1[1] = gmClockQuality.cq_class;
 
 	this1[2] = clock_quality.clockAccuracy;
-	that1[2] = msg->getGrandmasterClockQuality()->clockAccuracy;
+	that1[2] = gmClockQuality.clockAccuracy;
 
 	tmp = clock_quality.offsetScaledLogVariance;
 	tmp = PLAT_htons(tmp);
 	memcpy(this1 + 3, &tmp, sizeof(tmp));
-	tmp = msg->getGrandmasterClockQuality()->offsetScaledLogVariance;
+	tmp = gmClockQuality.offsetScaledLogVariance;
 	tmp = PLAT_htons(tmp);
 	memcpy(that1 + 3, &tmp, sizeof(tmp));
 
 	this1[5] = priority2;
-	that1[5] = msg->getGrandmasterPriority2();
+	that1[5] = msg.getGrandmasterPriority2();
 
 	clock_identity.getIdentityString(this1 + 6);
-	msg->getGrandmasterIdentity((char *)that1 + 6);
+	msg.getGrandmasterIdentity((char *)that1 + 6);
 
 #if 0
 	GPTP_LOG_DEBUG("(Clk)Us: ");

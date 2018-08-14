@@ -118,19 +118,19 @@ class EtherPort : public CommonPort
 	uint32_t avbSyncState;
 
 	uint16_t pdelay_sequence_id;
-	PTPMessagePathDelayReq *last_pdelay_req;
-	PTPMessagePathDelayResp *last_pdelay_resp;
-	PTPMessagePathDelayRespFollowUp *last_pdelay_resp_fwup;
+	std::shared_ptr<PTPMessagePathDelayReq> last_pdelay_req;
+	std::shared_ptr<PTPMessagePathDelayResp> last_pdelay_resp;
+	std::shared_ptr<PTPMessagePathDelayRespFollowUp> last_pdelay_resp_fwup;
 
 	PTPMessageFollowUp last_fwup;
 	PTPMessageDelayReq last_delay_req;
 	PTPMessageDelayResp last_delay_resp;
 
-	PTPMessageAnnounce *qualified_announce;
+	static PTPMessageAnnounce qualified_announce;
 
 	IdentityMap_t identity_map;
 
-	PTPMessageSync *last_sync;
+	std::shared_ptr<PTPMessageSync> last_sync;
 
 	OSCondition *port_ready_condition;
 
@@ -230,23 +230,32 @@ protected:
 	 */
 	EtherPort( PortInit_t *portInit );
 
+private:
+	EtherPort();
+
+public:
+
 	/**
 	 * @brief  Adds a new qualified announce the port. IEEE 802.1AS
 	 * Clause 10.3.10.2
 	 * @param  annc PTP announce message
 	 * @return void
 	 */
-	virtual void setQualifiedAnnounce(PTPMessageAnnounce *annc)
+	virtual void setQualifiedAnnounce(const PTPMessageAnnounce &annc)
 	{
-		delete qualified_announce;
 		qualified_announce = annc;
+	}
+
+	virtual void resetQualifiedAnnounce()
+	{
+		qualified_announce.clear();
 	}
 
 	/**
 	 * @brief  Gets the "best" announce
-	 * @return Pointer to PTPMessageAnnounce
+	 * @return PTPMessageAnnounce
 	 */
-	virtual PTPMessageAnnounce *calculateERBest(bool lockIt = true);
+	virtual PTPMessageAnnounce& calculateERBest(bool lockIt = true);
 
 	/**
 	 * @brief  Initializes the port. Creates network interface, initializes
@@ -414,13 +423,15 @@ protected:
 	 * @param  msg [in] PTP sync message
 	 * @return void
 	 */
-	void setLastSync(PTPMessageSync * msg, bool lockIt = true);
+	void setLastSync(std::shared_ptr<PTPMessageSync> msg, bool lockIt = true);
+
+	void setLastSync(const PTPMessageSync& msg, bool lockIt = true);
 
 	/**
 	 * @brief  Gets last sync message
 	 * @return PTPMessageSync last sync
 	 */
-	PTPMessageSync* getLastSync(bool lockIt = true);
+	std::shared_ptr<PTPMessageSync> getLastSync(bool lockIt = true);
 
 	/**
 	 * @brief  Locks PDelay RX
@@ -490,7 +501,7 @@ protected:
 	 * @param  msg [in] PTPMessagePathDelayReq message to set
 	 * @return void
 	 */
-	void setLastPDelayReq(PTPMessagePathDelayReq * msg) {
+	void setLastPDelayReq(std::shared_ptr<PTPMessagePathDelayReq> msg) {
 		last_pdelay_req = msg;
 	}
 
@@ -498,7 +509,7 @@ protected:
 	 * @brief  Gets the last PTPMessagePathDelayReq message
 	 * @return Last pdelay request
 	 */
-	PTPMessagePathDelayReq *getLastPDelayReq(void) {
+	std::shared_ptr<PTPMessagePathDelayReq> getLastPDelayReq() {
 		return last_pdelay_req;
 	}
 
@@ -507,15 +518,18 @@ protected:
 	 * @param  msg [in] Last pdelay response
 	 * @return void
 	 */
-	void setLastPDelayResp(PTPMessagePathDelayResp * msg) {
+	void setLastPDelayResp(std::shared_ptr<PTPMessagePathDelayResp> msg) {
 		last_pdelay_resp = msg;
 	}
 
+	void setLastPDelayResp(const PTPMessagePathDelayResp& msg) {
+		*last_pdelay_resp = msg;
+	}
 	/**
 	 * @brief  Gets the last PTPMessagePathDelayResp message
 	 * @return Last pdelay response
 	 */
-	PTPMessagePathDelayResp *getLastPDelayResp(void) {
+	std::shared_ptr<PTPMessagePathDelayResp> getLastPDelayResp() {
 		return last_pdelay_resp;
 	}
 
@@ -524,15 +538,19 @@ protected:
 	 * @param  msg [in] last pdelay response follow up
 	 * @return void
 	 */
-	void setLastPDelayRespFollowUp(PTPMessagePathDelayRespFollowUp * msg) {
+	void setLastPDelayRespFollowUp(std::shared_ptr<PTPMessagePathDelayRespFollowUp> msg) {
 		last_pdelay_resp_fwup = msg;
 	}
 
+	void setLastPDelayRespFollowUp(const PTPMessagePathDelayRespFollowUp& msg) {
+		*last_pdelay_resp_fwup = msg;
+	}
+	
 	/**
 	 * @brief  Gets the last PTPMessagePathDelayRespFollowUp message
 	 * @return last pdelay response follow up
 	 */
-	PTPMessagePathDelayRespFollowUp *getLastPDelayRespFollowUp(void) {
+	std::shared_ptr<PTPMessagePathDelayRespFollowUp> getLastPDelayRespFollowUp(void) {
 		return last_pdelay_resp_fwup;
 	}
 
@@ -541,7 +559,7 @@ protected:
 	 * @param  msg [in] last follow up
 	 * @return void
 	 */
-	void setLastFollowUp(PTPMessageFollowUp *msg);
+	void setLastFollowUp(std::shared_ptr<PTPMessageFollowUp> msg);
 
 	/**
 	 * @brief  Gets the last PTPMessageFollowUp message
@@ -554,9 +572,9 @@ protected:
 	 * @param  msg [in] PTPMessageDelayReq message to set
 	 * @return void
 	 */
-	void setLastDelayReq(PTPMessageDelayReq *msg);
+	void setLastDelayReq(std::shared_ptr<PTPMessageDelayReq> msg);
 
-	void setLastDelayReq(const PTPMessageDelayReq &msg);
+	void setLastDelayReq(const PTPMessageDelayReq& msg);
 
 	/**
 	 * @brief  Gets the last PTPMessageDelayReq message
@@ -569,7 +587,7 @@ protected:
 	 * @param  msg [in] Last delay response
 	 * @return void
 	 */
-	void setLastDelayResp(PTPMessageDelayResp *msg);
+	void setLastDelayResp(std::shared_ptr<PTPMessageDelayResp> msg);
 
 	/**
 	 * @brief  Gets the last PTPMessageDelayResp message
@@ -587,7 +605,7 @@ protected:
 	 * @return GPTP_EC_SUCCESS if no error, GPTP_EC_FAILURE if error and GPTP_EC_EAGAIN to try again.
 	 */
 	int getRxTimestamp
-	(std::shared_ptr<PortIdentity> sourcePortIdentity, PTPMessageId messageId,
+	(std::shared_ptr<PortIdentity> sourcePortIdentity, const PTPMessageId& messageId,
 	 Timestamp & timestamp, unsigned &counter_value, bool last);
 
 	/**
@@ -600,7 +618,7 @@ protected:
 	 * @return GPTP_EC_SUCCESS if no error, GPTP_EC_FAILURE if error and GPTP_EC_EAGAIN to try again.
 	 */
 	int getTxTimestamp
-	(std::shared_ptr<PortIdentity>  sourcePortIdentity, PTPMessageId messageId,
+	(std::shared_ptr<PortIdentity>  sourcePortIdentity, const PTPMessageId& messageId,
 	 Timestamp & timestamp, unsigned &counter_value, bool last);
 
 	/**
@@ -612,7 +630,11 @@ protected:
 	 * @return GPTP_EC_SUCCESS if no error, GPTP_EC_FAILURE if error and GPTP_EC_EAGAIN to try again.
 	 */
 	int getTxTimestamp
-	(PTPMessageCommon * msg, Timestamp & timestamp, unsigned &counter_value,
+	(std::shared_ptr<PTPMessageCommon> msg, Timestamp & timestamp, unsigned &counter_value,
+	 bool last);
+
+	int getTxTimestamp
+	(const PTPMessageCommon& msg, Timestamp & timestamp, unsigned &counter_value,
 	 bool last);
 
 	/**
@@ -624,7 +646,7 @@ protected:
 	 * @return GPTP_EC_SUCCESS if no error, GPTP_EC_FAILURE if error and GPTP_EC_EAGAIN to try again.
 	 */
 	int getRxTimestamp
-	(PTPMessageCommon * msg, Timestamp & timestamp, unsigned &counter_value,
+	(std::shared_ptr<PTPMessageCommon> msg, Timestamp & timestamp, unsigned &counter_value,
 	 bool last);
 
 	/**
