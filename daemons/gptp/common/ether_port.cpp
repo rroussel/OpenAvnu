@@ -54,6 +54,7 @@ static std::mutex gLastSyncMutex;
 static std::mutex gMeanPathDelayMutex;
 static std::mutex gQualifiedAnnounceMutex;
 static std::mutex gCommonMessageMutex;
+static std::mutex gAddrMapMutex;
 
 LinkLayerAddress EtherPort::other_multicast(OTHER_MULTICAST);
 LinkLayerAddress EtherPort::pdelay_multicast(PDELAY_MULTICAST);
@@ -957,6 +958,7 @@ void EtherPort::mapSocketAddr
 {
 	if (remote != nullptr && destIdentity != nullptr)
 	{
+		std::lock_guard<std::mutex> lock(gAddrMapMutex);
 		*remote = identity_map[*destIdentity];
 	}
 }
@@ -966,10 +968,11 @@ void EtherPort::addSockAddrMap
 {
 	if (remote != nullptr && destIdentity != nullptr)
 	{
+		std::lock_guard<std::mutex> lock(gAddrMapMutex);
 		identity_map[*destIdentity] = *remote;
+		GPTP_LOG_VERBOSE("EtherPort::addSockAddrMap "
+			"identity_map.size:%d", identity_map.size());
 	}
-	GPTP_LOG_VERBOSE("EtherPort::addSockAddrMap "
-	"identity_map.size:%d", identity_map.size());
 }
 
 void EtherPort::timestamper_init()
