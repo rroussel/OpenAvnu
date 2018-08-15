@@ -1393,7 +1393,6 @@ PTPMessageAnnounce::PTPMessageAnnounce(CommonPort *port) :
 	ClockIdentity clock_identity;
 
 	sequenceId = 0;
-	tlv.appendClockIdentity(id);
 	currentUtcOffset = 0;
 	grandmasterPriority1 = 0;
 	grandmasterPriority2 = 0;
@@ -1408,12 +1407,13 @@ PTPMessageAnnounce::PTPMessageAnnounce(CommonPort *port) :
 		if (port->getClock())
 		{
 			id = port->getClock()->getClockIdentity();
+			// Only add the clock id if we have one
+			tlv.appendClockIdentity(id);
 			timeSource = port->getClock()->getTimeSource();
 			clock_identity = port->getClock()->getGrandmasterClockIdentity();
 			clock_identity.getIdentityString(grandmasterIdentity);
 			grandmasterClockQuality = port->getClock()->getClockQuality();
 		}
-		tlv.appendClockIdentity(id);
 
 		currentUtcOffset = port->getClock()->getCurrentUtcOffset();
 		grandmasterPriority1 = port->getClock()->getPriority1();
@@ -1479,8 +1479,10 @@ bool PTPMessageAnnounce::sendPort(EtherPort * port,
 
 void PTPMessageAnnounce::processMessage(EtherPort *port)
 {
+	GPTP_LOG_VERBOSE("PTPMessageAnnounce::processMessage");
 	if (*(port->getPortIdentity()) == *getPortIdentity())
 	{
+		GPTP_LOG_VERBOSE("PTPMessageAnnounce::processMessage   Ignoring message from self");
 		// Ignore messages from self
 		return;
 	}
@@ -1495,6 +1497,7 @@ void PTPMessageAnnounce::processMessage(EtherPort *port)
 
 	if (stepsRemoved >= 255)
 	{
+		GPTP_LOG_VERBOSE("PTPMessageAnnounce::processMessage   stepsremoved >= 255 breaking");
 		return;
 	}
 
@@ -1503,6 +1506,7 @@ void PTPMessageAnnounce::processMessage(EtherPort *port)
 	if (sourcePortIdentity->getClockIdentity() == my_clock_identity ||
 		tlv.has(&my_clock_identity))
 	{
+		GPTP_LOG_VERBOSE("PTPMessageAnnounce::processMessage   message from self resetting ANNOUNCE_RECEIPT_TIMEOUT_EXPIRES");
 		port->getClock()->addEventTimerLocked
 			(port, ANNOUNCE_RECEIPT_TIMEOUT_EXPIRES,
 			 (unsigned long long)
@@ -1517,6 +1521,7 @@ void PTPMessageAnnounce::processMessage(EtherPort *port)
 	// Add message to the list
 	port->setQualifiedAnnounce(*this);
 
+	GPTP_LOG_VERBOSE("PTPMessageAnnounce::processMessage   Adding   STATE_CHANGE_EVENT");
 	port->getClock()->addEventTimerLocked(port, STATE_CHANGE_EVENT, 16000000);
 }
 
