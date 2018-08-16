@@ -315,9 +315,6 @@ class ClockIdentity {
  * @brief Provides a Timestamp interface
  */
 class Timestamp {
-private:
-	char output_string[MAX_TSTAMP_STRLEN];
-
 public:
 	uint32_t nanoseconds;	//!< 32 bit nanoseconds value
 	uint32_t seconds_ls;	//!< 32 bit seconds LSB value
@@ -372,7 +369,7 @@ public:
 
 	bool operator==(const Timestamp& other)
 	{
-		return  0 == memcmp(output_string, other.output_string, MAX_TSTAMP_STRLEN) &&
+		return
 		 nanoseconds == other.nanoseconds &&
 		 seconds_ls == other.seconds_ls &&
 		 seconds_ms == other.seconds_ms &&
@@ -383,8 +380,7 @@ public:
 	{
 		if (this != &other)
 		{
-		    memcpy(output_string, other.output_string, MAX_TSTAMP_STRLEN);
-		    nanoseconds = other.nanoseconds;
+	   	nanoseconds = other.nanoseconds;
 			seconds_ls = other.seconds_ls;
 			seconds_ms = other.seconds_ms;
 			_version = other._version;
@@ -397,15 +393,14 @@ public:
 	 * seconds_ms seconds_ls nanoseconds
 	 * @return STL string containing timestamp
 	 */
-	std::string toString() const
+	const std::string toString() const
 	{
 		char output_string[MAX_TSTAMP_STRLEN+1];
 
-		PLAT_snprintf
-			( output_string, MAX_TSTAMP_STRLEN+1, "%hu %u.%09u",
-			  seconds_ms, seconds_ls, nanoseconds );
+		PLAT_snprintf(output_string, MAX_TSTAMP_STRLEN+1, "%hu %u.%09u",
+			  seconds_ms, seconds_ls, nanoseconds);
 
-		return std::string( output_string );
+		return output_string;
 	}
 
 	/**
