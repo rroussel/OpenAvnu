@@ -414,23 +414,20 @@ public:
 	 * @return Object's timestamp + o.
 	 */
 	Timestamp operator+( const Timestamp& o ) {
-		uint32_t ns;
-		uint32_t seconds_ls;
-		uint16_t seconds_ms;
-		uint8_t version;
-		bool carry;
+		uint32_t ns = nanoseconds;
+		uint32_t seconds_ls = this->seconds_ls;
+		uint16_t seconds_ms = this->seconds_ms;
+		uint8_t version = 0;
+		bool carry = false;
 
-		ns  = nanoseconds;
 		ns += o.nanoseconds;
 		carry = ns < nanoseconds || ns >= MAX_NANOSECONDS;
 		ns -= carry ? MAX_NANOSECONDS : 0;
 
-		seconds_ls  = this->seconds_ls;
 		seconds_ls += o.seconds_ls;
 		seconds_ls += carry ? 1 : 0;
 		carry = seconds_ls < this->seconds_ls;
 
-		seconds_ms  = this->seconds_ms;
 		seconds_ms += o.seconds_ms;
 		seconds_ms += carry ? 1 : 0;
 		carry = seconds_ms < this->seconds_ms;
@@ -446,11 +443,11 @@ public:
 	 * @return Object's timestamp - o.
 	 */
 	Timestamp operator-( const Timestamp& o ) {
-		uint32_t nanoseconds;
-		uint32_t seconds_ls;
-		uint16_t seconds_ms;
-		uint8_t version;
-		bool carry, borrow_this;
+		uint32_t nanoseconds = 0;
+		uint32_t seconds_ls = 0;
+		uint16_t seconds_ms = 0;
+		uint8_t version = 0;
+		bool carry = false, borrow_this = false;
 		unsigned borrow_total = 0;
 
 		borrow_this = this->nanoseconds < o.nanoseconds;
