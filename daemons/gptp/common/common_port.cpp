@@ -31,12 +31,14 @@
 
 ******************************************************************************/
 #include <inttypes.h>
+#include <mutex>
 
 #include "common_port.hpp"
 #include "avbts_clock.hpp"
 #include "common_tstamper.hpp"
 #include "gptp_cfg.hpp"
 
+static std::mutex gTimerFactoryMutex;
 
 CommonPort::CommonPort( PortInit_t *portInit ) :
 	thread_factory( portInit->thread_factory ),
@@ -134,6 +136,12 @@ bool CommonPort::init_port( void )
 	announceIntervalTimerLock = lock_factory->createLock(oslock_recursive);
 
 	return _init_port();
+}
+
+OSTimer *CommonPort::createTimer()
+{
+	std::lock_guard<std::mutex> lock(gTimerFactoryMutex);
+	return timer_factory->createTimer();
 }
 
 void CommonPort::setClock(IEEE1588Clock * otherClock)

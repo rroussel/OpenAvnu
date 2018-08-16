@@ -411,7 +411,7 @@ std::shared_ptr<PTPMessageCommon> buildPTPMessage
 (char *buf, size_t size, LinkLayerAddress *remote, EtherPort *port, 
  const Timestamp& ingressTime)
 {
-	OSTimer *timer = port->getTimerFactory()->createTimer();
+	OSTimer *timer = port->createTimer();
 	std::shared_ptr<PTPMessageCommon> msg = nullptr;
 	PTPMessageId messageId;
 	MessageType messageType;
@@ -995,7 +995,7 @@ abort:
 
 bool PTPMessageCommon::getTxTimestamp( EtherPort *port, uint32_t link_speed )
 {
-	OSTimer *timer = port->getTimerFactory()->createTimer();
+	OSTimer *timer = port->createTimer();
 	int ts_good;
 	Timestamp tx_timestamp;
 	uint32_t unused;
@@ -2277,7 +2277,7 @@ PTPMessagePathDelayReq::PTPMessagePathDelayReq(EtherPort * port):
 
 void PTPMessagePathDelayReq::processMessage(EtherPort *port)
 {
-	OSTimer *timer = port->getTimerFactory()->createTimer();
+	OSTimer *timer = port->createTimer();
 	std::shared_ptr<PortIdentity> resp_fwup_id;
 	std::shared_ptr<PortIdentity> requestingPortIdentity_p;
 	PTPMessagePathDelayResp *resp;

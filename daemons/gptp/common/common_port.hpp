@@ -1098,9 +1098,7 @@ public:
 	 * @brief  Gets a pointer to timer_factory object
 	 * @return timer_factory pointer
 	 */
-	const OSTimerFactory *getTimerFactory() {
-		return timer_factory;
-	}
+	OSTimer *createTimer();
 
 	/**
 	 * @brief Watch for link up and down events.
