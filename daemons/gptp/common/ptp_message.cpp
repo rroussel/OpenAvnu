@@ -223,8 +223,8 @@ void PTPMessageCommon::MaybePerformCalculations(EtherPort *port)
 
 					typedef FrequencyRatio FR;
 
-					FR localtime;
-					FR remote;
+					FR localtime = 0.0;
+					FR remote = 0.0;
 					
 					// Ensure that  t4 >= t1 and t3 >= t2 
 					if (t4 >= t1 && t3 >= t2)
@@ -276,7 +276,7 @@ void PTPMessageCommon::MaybePerformCalculations(EtherPort *port)
 
 
 								// Limit the precision of our floating point values
-								int kLimit = 100;
+								const int kLimit = 100;
 								difflocaltime = ceil(difflocaltime * kLimit) / kLimit;
 								remoteDiffUpper = ceil(remoteDiffUpper * kLimit) / kLimit;
 								remoteDiffLower = ceil(remoteDiffLower * kLimit) / kLimit;
