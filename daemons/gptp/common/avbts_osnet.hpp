@@ -415,7 +415,7 @@ class InterfaceName: public InterfaceLabel {
 	/**
 	 * @brief Default constructor
 	 */
-	InterfaceName() { }
+	InterfaceName() : name(nullptr) { }
 	/**
 	 * @brief Initializes Interface name with name and size lenght+1
 	 * @param name [in] String with the interface name
@@ -426,7 +426,7 @@ class InterfaceName: public InterfaceLabel {
 		PLAT_strncpy(this->name, name, length);
 	}
 	~InterfaceName() {
-		delete(this->name);
+		delete[](this->name);
 	}
 
 	/**
