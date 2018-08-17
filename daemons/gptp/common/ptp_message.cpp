@@ -1268,10 +1268,12 @@ void PTPMessageSync::processMessage(EtherPort *port)
 		return;
 	}
 
-	if (*(port->getPortIdentity()) == *getPortIdentity())
+
+	if (PTP_SLAVE == state &&
+		port->getClock()->getGrandmasterClockIdentity() != getPortIdentity()->getClockIdentity())
 	{
-		// Ignore messages from self
-		return;
+	      GPTP_LOG_DEBUG("PTPMessageSync::processMessage skipping non-gm sync in slave mode");
+	      return;
 	}
 
 	if (PTP_FAULTY == state) 
