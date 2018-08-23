@@ -323,14 +323,13 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 	Timestamp ingressTime;
 	size_t length = kBufSize;
 
-	std::lock_guard<std::mutex> lock(gCommonMessageMutex);	
-
 	rrecv = checkEventMessage
 	 ? net_iface->nrecvEvent(&remote, buf, length, ingressTime, this)
 	 : net_iface->nrecvGeneral(&remote, buf, length, ingressTime, this);
 
 	if (net_succeed == rrecv)
 	{
+		std::lock_guard<std::mutex> lock(gCommonMessageMutex);
 		GPTP_LOG_VERBOSE("Processing network buffer");
 		std::shared_ptr<PTPMessageCommon> msg = buildPTPMessage(
 			reinterpret_cast<char*>(buf), kBufSize, &remote, this, ingressTime);
@@ -348,6 +347,7 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 	}
 	else if (rrecv == net_fatal)
 	{
+		std::lock_guard<std::mutex> lock(gCommonMessageMutex);
 		GPTP_LOG_ERROR("read from network interface failed");
 		this->processEvent(FAULT_DETECTED);
 	}
