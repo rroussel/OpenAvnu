@@ -1268,6 +1268,11 @@ void PTPMessageSync::processMessage(EtherPort *port)
 		return;
 	}
 
+	if (*(port->getPortIdentity()) == *getPortIdentity())
+	{
+		// Ignore messages from self
+		return;
+	}
 
 	if (PTP_SLAVE == state &&
 		port->getClock()->getGrandmasterClockIdentity() != getPortIdentity()->getClockIdentity())
