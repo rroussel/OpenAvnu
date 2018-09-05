@@ -53,7 +53,6 @@ static std::mutex gLastDelayRespMutex;
 static std::mutex gLastSyncMutex;
 static std::mutex gMeanPathDelayMutex;
 static std::mutex gQualifiedAnnounceMutex;
-static std::mutex gCommonMessageMutex;
 static std::mutex gAddrMapMutex;
 
 LinkLayerAddress EtherPort::other_multicast(OTHER_MULTICAST);
@@ -329,15 +328,13 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 
 	if (net_succeed == rrecv)
 	{
-		std::lock_guard<std::mutex> lock(gCommonMessageMutex);
-		GPTP_LOG_VERBOSE("Processing network buffer");
 		std::shared_ptr<PTPMessageCommon> msg = buildPTPMessage(
 			reinterpret_cast<char*>(buf), kBufSize, &remote, this, ingressTime);
 		if (msg != nullptr)
 		{
 			GPTP_LOG_VERBOSE("Processing message");
 			GPTP_LOG_VERBOSE("EtherPort::maybeProcessMessage   clockId:%s",
-			 port_identity->getClockIdentity().getIdentityString().c_str());
+ 			 port_identity->getClockIdentity().getIdentityString().c_str());
 			msg->processMessage(this);
 		} 
 		else
@@ -347,7 +344,6 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 	}
 	else if (rrecv == net_fatal)
 	{
-		std::lock_guard<std::mutex> lock(gCommonMessageMutex);
 		GPTP_LOG_ERROR("read from network interface failed");
 		this->processEvent(FAULT_DETECTED);
 	}
