@@ -85,7 +85,7 @@ CommonPort::CommonPort( PortInit_t *portInit ) :
 	testMode = false;
 	log_mean_sync_interval = 0;
 	fLastFilteredRateRatio = 0.0;
-	smoothRateChange = false;
+	smoothRateChange = portInit->smoothRateChange;
 	fIsWireless = false;
 	fMasterOffset = 0.0;
 	sync_count = 0;
