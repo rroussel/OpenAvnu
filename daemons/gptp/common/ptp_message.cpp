@@ -250,8 +250,8 @@ void PTPMessageCommon::MaybePerformCalculations(EtherPort *port)
 						GPTP_LOG_VERBOSE("correctionFieldFollowup: %" PRIu64, fup.getCorrectionField());
 						GPTP_LOG_VERBOSE("correctionFileDelayResp: %" PRIu64, resp.getCorrectionField());
 
-						// check is <= 80 ms
-						if (check <= 80000000)
+						// check is <= 3 ms
+						if (check <= 3000000)
 						{
 							GPTP_LOG_VERBOSE("$$$$$$$$$$$$$$$$$$$$$$$$$$  check passed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  goodSyncCount:%d", port->GoodSyncCount());
 							// Do this for the 2nd successful sync that has a less than
@@ -1672,13 +1672,11 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 	{
 		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
       GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::processMessage   after sync LOCK");
-      	std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
+     	std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
 		if (sync == nullptr) {
 			GPTP_LOG_ERROR("Received Follow Up but there is no sync message");
 			return;
 		}
-
-
 		sync_id = sync->getPortIdentity();
 		syncSequenceId = sync->getSequenceId();
 	}
@@ -1696,8 +1694,6 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 		GPTP_LOG_DEBUG("source Port Identity:%s",  sourcePortIdentity->getClockIdentity().getIdentityString().c_str());
 
 #ifdef APTP
-		GPTP_LOG_DEBUG("       Checking event port for sync.");
-		port->checkForEvent();
 		return;
 #else
 		unsigned int cnt = 0;
