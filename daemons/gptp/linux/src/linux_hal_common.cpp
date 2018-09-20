@@ -31,6 +31,8 @@
 
 ******************************************************************************/
 
+#include <iostream>
+
 #include "linux_hal_common.hpp"
 #include "avbts_clock.hpp"
 #include "ether_port.hpp"
@@ -1073,6 +1075,7 @@ bool LinuxSharedMemoryIPC::update(
 			typedef FrequencyRatio FR;
 			filtered = (FR(fLastFreqoffset * 63) / 64) + (ml_freqoffset / 64);
 		}
+		std::cout << "frequencyOffset:" << filtered << std::endl;
 
 		ptimedata->ml_freqoffset = filtered;		
 		ptimedata->ls_phoffset = ls_phoffset;
