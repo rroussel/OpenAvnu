@@ -250,10 +250,10 @@ void PTPMessageCommon::MaybePerformCalculations(EtherPort *port)
 						GPTP_LOG_VERBOSE("correctionFieldFollowup: %" PRIu64, fup.getCorrectionField());
 						GPTP_LOG_VERBOSE("correctionFileDelayResp: %" PRIu64, resp.getCorrectionField());
 
-						// check is <= 3 ms
-						if (check <= 3000000)
+						// check is <= 80 ms
+						if (check <= 80000000)
 						{
-							GPTP_LOG_VERBOSE("$$$$$$$$$$$$$$$$$$$$$$$$$$  check passed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  goodSyncCount:%d", port->GoodSyncCount());
+							GPTP_LOG_VERBOSE("$$$$$$$$$$$$$$$$$$$$$$$$$$  check passed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  goodSyncCount:%d   check:%d", port->GoodSyncCount(), check);
 							// Do this for the 2nd successful sync that has a less than
 							// check value
 							if (port->GoodSyncCount() > 1)

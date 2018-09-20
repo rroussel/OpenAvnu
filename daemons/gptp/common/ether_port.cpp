@@ -54,6 +54,7 @@ static std::mutex gLastSyncMutex;
 static std::mutex gMeanPathDelayMutex;
 static std::mutex gQualifiedAnnounceMutex;
 static std::mutex gAddrMapMutex;
+static std::mutex gCommonMsgMutex;
 
 LinkLayerAddress EtherPort::other_multicast(OTHER_MULTICAST);
 LinkLayerAddress EtherPort::pdelay_multicast(PDELAY_MULTICAST);
@@ -275,8 +276,8 @@ bool EtherPort::PortCheck(EtherPort *port, bool isEvent)
 #ifdef APTP
 	struct timespec req;
 	struct timespec rem;
-	req.tv_sec = 40000 / 1000000;
-	req.tv_nsec = 40000 % 1000000 * 1000;
+	req.tv_sec = 20000 / 1000000;
+	req.tv_nsec = 20000 % 1000000 * 1000;
 #endif
 
 	while (1)
@@ -343,6 +344,7 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 			reinterpret_cast<char*>(buf), kBufSize, &remote, this, ingressTime);
 		if (msg != nullptr)
 		{
+			std::lock_guard<std::mutex> lock(gCommonMsgMutex);
 			GPTP_LOG_VERBOSE("Processing message");
 			GPTP_LOG_VERBOSE("EtherPort::maybeProcessMessage   clockId:%s",
  			 port_identity->getClockIdentity().getIdentityString().c_str());
@@ -355,6 +357,7 @@ net_result EtherPort::maybeProcessMessage(bool checkEventMessage)
 	}
 	else if (rrecv == net_fatal)
 	{
+		std::lock_guard<std::mutex> lock(gCommonMsgMutex);
 		GPTP_LOG_ERROR("read from network interface failed");
 		this->processEvent(FAULT_DETECTED);
 	}
