@@ -272,13 +272,6 @@ bool EtherPort::PortCheck(EtherPort *port, bool isEvent)
 {
 	bool ok = true;
 	const std::string kMessageType = isEvent ? "event" : "general";
-#ifdef APTP
-	struct timespec req;
-	struct timespec rem;
-	req.tv_sec = 40000 / 1000000;
-	req.tv_nsec = 40000 % 1000000 * 1000;
-#endif
-
 	while (1)
 	{
 		// Check for messages and process them
@@ -290,10 +283,6 @@ bool EtherPort::PortCheck(EtherPort *port, bool isEvent)
 			ok = false;
 			break;
 		}
-#ifdef APTP		
-		// Give other threads time to check
-		nanosleep(&req, &rem);
-#endif
 	}
 
 	return ok;
