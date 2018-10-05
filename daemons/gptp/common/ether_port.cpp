@@ -99,6 +99,8 @@ OSThreadExitCode openPortWrapper(void *arg)
 		return osthread_error;
 }
 
+bool EtherPort::sStopped = false;
+
 EtherPort::~EtherPort()
 {
 #ifndef APTP	
@@ -276,11 +278,11 @@ bool EtherPort::PortCheck(EtherPort *port, bool isEvent)
 #ifdef APTP
 	struct timespec req;
 	struct timespec rem;
-	req.tv_sec = 20000 / 1000000;
-	req.tv_nsec = 20000 % 1000000 * 1000;
+	req.tv_sec = 10000 / 1000000;
+	req.tv_nsec = 10000 % 1000000 * 1000;
 #endif
 
-	while (1)
+	while (!sStopped)
 	{
 		// Check for messages and process them
 		if (net_fatal == maybeProcessMessage(isEvent))
@@ -895,6 +897,17 @@ bool EtherPort::_processEvent( Event e )
 	}
 
 	return ret;
+}
+
+void EtherPort::stopThreads()
+{
+#ifdef RPI
+	OSThreadExitCode exitCode;
+	sStopped = true;
+	link_thread->stop();
+	eventThread->join(exitCode);
+	generalThread->join(exitCode);
+#endif
 }
 
 void EtherPort::recoverPort( void )

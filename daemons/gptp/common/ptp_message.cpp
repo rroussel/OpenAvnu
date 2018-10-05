@@ -1666,9 +1666,53 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 		return;
 	}*/
 	bool ok = false;
-	uint16_t syncSequenceId = 0;
+	//uint16_t syncSequenceId = 0;
 	std::shared_ptr<PortIdentity> sync_id;
 
+	{
+		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
+      GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::processMessage   after sync LOCK");
+      std::shared_ptr<PTPMessageSync> sync = port->getLastSync(false);
+		if (sync == nullptr) {
+			GPTP_LOG_ERROR("Received Follow Up but there is no sync message");
+			return;
+		}
+
+		std::shared_ptr<PortIdentity> sync_id;
+		sync_id = sync->getPortIdentity();
+
+		if (sync->getSequenceId() != sequenceId || 
+		 (sourcePortIdentity != nullptr && sync_id != nullptr &&
+		 *sync_id != *sourcePortIdentity))
+		{
+	#ifdef APTP
+			GPTP_LOG_DEBUG("Received Follow Up that didn't match the sync message.\n"
+			 "sync.seqId:%d followup.seqId:%d", sync->getSequenceId(), sequenceId);
+			GPTP_LOG_DEBUG("       Sync clock id:%s",  sync_id->getClockIdentity().getIdentityString().c_str());
+			GPTP_LOG_DEBUG("source Port Identity:%s",  sourcePortIdentity->getClockIdentity().getIdentityString().c_str());
+			return;
+	#else
+			unsigned int cnt = 0;
+
+			if( !port->incWrongSeqIDCounter(&cnt) )
+			{
+				port->becomeMaster( true );
+				port->setWrongSeqIDCounter(0);
+			}
+
+			GPTP_LOG_ERROR("Received Follow Up %d times but cannot find "
+			 "corresponding Sync", cnt);
+	#endif
+		}
+		else
+		{
+			ok = ComputeFrequencies(port, false);
+		}
+	}
+   GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::processMessage   after sync ULOCK");
+
+
+/*
 	{
 		std::lock_guard<std::mutex> lockSync(*(port->GetLastSyncMutex()));
       GPTP_LOG_DEBUG("------------- PTPMessageFollowUp::processMessage   after sync LOCK");
@@ -1712,7 +1756,7 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 	{
 		ok = ComputeFrequencies(port, false);
 	}
-
+*/
 
 	MaybePerformCalculations(port, ok);
 }

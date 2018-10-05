@@ -908,6 +908,14 @@ bool LinuxThread::join(OSThreadExitCode & exit_code) {
 	return true;
 }
 
+void LinuxThread::stop()
+{
+	if (0 == pthread_cancel(_private->thread_id))
+	{
+		delete arg_inner;
+	}
+}
+
 LinuxThread::LinuxThread() {
 	_private = NULL;
 };

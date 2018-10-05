@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 	portInit.thread_factory = NULL;
 	portInit.timer_factory = NULL;
 	portInit.lock_factory = NULL;
-	portInit.smoothRateChange = true;
+	portInit.smoothRateChange = false;
 	portInit.syncReceiptThreshold =
 		CommonPort::DEFAULT_SYNC_RECEIPT_THRESH;
 	portInit.neighborPropDelayThreshold =
@@ -612,6 +612,8 @@ int main(int argc, char **argv)
 			k.pPort->logIEEEPortCounters();
 		}
 	} while (sig == SIGHUP || sig == SIGUSR2);
+
+	k.pPort->stopThreads();
 
 #ifdef APTP
 	adrListener.Stop();

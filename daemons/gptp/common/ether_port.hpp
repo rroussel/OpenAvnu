@@ -155,6 +155,8 @@ class EtherPort : public CommonPort
 	FrequencyRatio fMeanPathDelay;
 	bool fMeanPathDelayIsSet;
 
+	static bool sStopped;
+
 protected:
 	static const unsigned int DUPLICATE_RESP_THRESH = 3;
 
@@ -263,6 +265,8 @@ public:
 	 * @return FALSE if error during building the interface. TRUE if success
 	 */
 	bool _init_port( void );
+
+	void stopThreads();
 
 	/**
 	 * @brief  Currently doesnt do anything. Just returns.

@@ -70,6 +70,9 @@ public:
 	 * @return Implementation specific
 	 */
 	virtual bool join(OSThreadExitCode & exit_code) = 0;
+	virtual void stop()
+	{}
+	
 	virtual ~OSThread() = 0;
 };
 

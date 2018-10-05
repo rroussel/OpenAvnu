@@ -616,6 +616,8 @@ class LinuxThread : public OSThread {
 	virtual bool join(OSThreadExitCode & exit_code);
 	virtual ~LinuxThread();
 
+	virtual void stop();
+
 	LinuxThread();
 };
 
