@@ -612,6 +612,7 @@ bool LinuxTimestamperGeneric::post_init( int ifindex, int sd, TicketingLock *loc
 	hwconfig.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
 	hwconfig.tx_type = HWTSTAMP_TX_ON;
 	err = ioctl( sd, SIOCSHWTSTAMP, &device );
+	GPTP_LOG_ERROR("ioctl:(%d) %s", err, strerror(errno));
 	if (-1 == err) 
 	{
 		GPTP_LOG_ERROR("Failed to configure hardware timestamping: %s",
@@ -630,20 +631,23 @@ bool LinuxTimestamperGeneric::post_init( int ifindex, int sd, TicketingLock *loc
 		}
 
 	}
-
-	timestamp_flags |= SOF_TIMESTAMPING_TX_HARDWARE;
-	timestamp_flags |= SOF_TIMESTAMPING_RX_HARDWARE;
-	timestamp_flags |= SOF_TIMESTAMPING_SYS_HARDWARE;
-	timestamp_flags |= SOF_TIMESTAMPING_RAW_HARDWARE;
-	err = setsockopt(sd, SOL_SOCKET, SO_TIMESTAMPING, &timestamp_flags,
-	 sizeof(timestamp_flags));
-	if (-1 == err)
-	{
-		GPTP_LOG_ERROR("Failed to configure hardware timestamping on socket: %s",
-		 strerror(errno));
-		return false;
-	}
-
+	else
+ 	{
+        timestamp_flags |= SOF_TIMESTAMPING_TX_HARDWARE;
+        timestamp_flags |= SOF_TIMESTAMPING_RX_HARDWARE;
+        timestamp_flags |= SOF_TIMESTAMPING_SYS_HARDWARE;
+        timestamp_flags |= SOF_TIMESTAMPING_RAW_HARDWARE;
+        err = setsockopt(sd, SOL_SOCKET, SO_TIMESTAMPING, &timestamp_flags,
+         sizeof(timestamp_flags));
+        
+        GPTP_LOG_ERROR("setsockopt:(%d) %s", err, strerror(errno));
+        if (-1 == err)
+        {
+            GPTP_LOG_ERROR("Failed to configure hardware timestamping on socket: %s",
+             strerror(errno));
+            return false;
+        }
+    }
 	return true;
 }
 

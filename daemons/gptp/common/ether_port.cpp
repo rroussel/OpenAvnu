@@ -1002,16 +1002,15 @@ void EtherPort::timestamper_init()
 {
 	if (_hw_timestamper != nullptr)
 	{
-#ifdef APTP		
-		bool ok = _hw_timestamper->HWTimestamper_init(net_label, net_iface, this);
-#else
-		bool ok = _hw_timestamper->HWTimestamper_init(net_label, net_iface);
-#endif
-		if (!ok)
+ #ifdef APTP		
+		fUseHardwareTimestamp = _hw_timestamper->HWTimestamper_init(net_label, net_iface, this);
+ #else
+		fUseHardwareTimestamp = _hw_timestamper->HWTimestamper_init(net_label, net_iface);
+ #endif
+		if (!fUseHardwareTimestamp)
 		{
 			GPTP_LOG_ERROR("Failed to initialize hardware timestamper, "
 			 "falling back to software timestamping");
-			fUseHardwareTimestamp = false;
 		}
 	}
 }
