@@ -1156,10 +1156,10 @@ std::shared_ptr<PTPMessageSync> EtherPort::getLastSync(bool lockIt)
 	}
 }
 
-void EtherPort::setLastFollowUp(std::shared_ptr<PTPMessageFollowUp> msg)
+void EtherPort::setLastFollowUp(const PTPMessageFollowUp& msg)
 {
 	std::lock_guard<std::mutex> lock(gLastFwupMutex);
-	last_fwup = *msg;
+	last_fwup = msg;
 }
 
 const PTPMessageFollowUp& EtherPort::getLastFollowUp(bool lockIt) const

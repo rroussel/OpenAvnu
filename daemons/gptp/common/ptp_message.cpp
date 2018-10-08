@@ -606,9 +606,6 @@ std::shared_ptr<PTPMessageCommon> buildPTPMessage
 			msg = followup_msg;
 			msg->setPortIdentity(sourcePortIdentity);
 
-			port->setLastFollowUp(std::dynamic_pointer_cast<PTPMessageFollowUp>(msg));
-			port->HaveFollowup(true);
-
 			GPTP_LOG_VERBOSE("Received Follow Up  precideOriginTimestamp:%d", followup_msg->preciseOriginTimestamp.seconds_ms);
 			GPTP_LOG_VERBOSE("Received Follow Up  correctionField:%d", followup_msg->correctionField);
 			GPTP_LOG_VERBOSE("Received Follow Up  clockId:%s",msg->getPortIdentity()->getClockIdentity().getIdentityString().c_str());
@@ -1657,6 +1654,15 @@ void PTPMessageFollowUp::processMessage(EtherPort *port)
 		port->recoverPort();
 		return;
 	}
+
+	if (port->getPortState() == PTP_SLAVE &&
+		port->getClock()->getGrandmasterClockIdentity() != getPortIdentity()->getClockIdentity())
+	{
+	      GPTP_LOG_DEBUG("PTPMessageFollowUp::processMessage skipping non-gm follow-up in slave mode");
+	      return;
+	}
+	port->setLastFollowUp(*this);
+	port->HaveFollowup(true);
 
 	port->incCounter_ieee8021AsPortStatRxFollowUpCount();
 

@@ -563,7 +563,7 @@ public:
 	 * @param  msg [in] last follow up
 	 * @return void
 	 */
-	void setLastFollowUp(std::shared_ptr<PTPMessageFollowUp> msg);
+	void setLastFollowUp(const PTPMessageFollowUp& msg);
 
 	/**
 	 * @brief  Gets the last PTPMessageFollowUp message
